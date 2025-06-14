@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Image, Lock, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,6 +39,10 @@ const SourceConfig = () => {
     encryption: "",
   });
   const importRef = useRef<HTMLInputElement | null>(null);
+
+  // Add this hook here to get up-to-date methods for the dialog key
+  const { methods } = useEncryptionMethods();
+  const encryptionMethodsKey = methods.map(m => m.name).join(",") + ":" + methods.length;
 
   function startEdit(idx: number) {
     setEditIdx(idx);
@@ -189,6 +192,7 @@ const SourceConfig = () => {
       {/* ADD/EDIT SOURCE FORM */}
       {showAdd ? (
         <AddEditSourceDialog
+          key={encryptionMethodsKey + (editIdx !== null ? `-edit-${editIdx}` : '-add')}
           form={form}
           setForm={setForm}
           editIdx={editIdx}
@@ -269,4 +273,3 @@ function AddEditSourceDialog({ form, setForm, editIdx, handleAddOrSave, handleCa
 }
 
 export default SourceConfig;
-
