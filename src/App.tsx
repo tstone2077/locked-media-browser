@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,9 +16,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* "/" renders Index, which now handles modal for Config */}
+          {/* "/" and "/config" both render Index; Index internally handles the Config modal */}
           <Route path="/" element={<Index />} />
-          {/* Remove direct Config route - modal now overlays via Index */}
+          <Route path="/config" element={<Index />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
