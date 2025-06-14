@@ -14,24 +14,21 @@ type FileEntry = {
   liked?: boolean;
 };
 
-const mockFiles: FileEntry[] = [
-  {
-    name: "VacationPhoto.jpg",
-    type: "image",
-    encrypted: btoa("data:image/jpeg;base64," + "photo-1488590528505-98d2b5aba04b"), // Use placeholder key as data
-  },
-  {
-    name: "Note.txt",
-    type: "text",
-    encrypted: btoa("Hello, world! This is a secret note."),
-  },
-];
+type EncryptedFileGridProps = {
+  sourceIndex: number;
+  files: FileEntry[];
+  onDeleteFile: (idx: number) => void;
+  onUpdateFile: (idx: number, updated: FileEntry) => void;
+};
 
-const EncryptedFileGrid = ({ sourceIndex }: { sourceIndex: number }) => {
+const EncryptedFileGrid = ({
+  sourceIndex,
+  files,
+  onDeleteFile,
+  onUpdateFile,
+}: EncryptedFileGridProps) => {
   const { sources } = useSources();
   const { methods } = useEncryptionMethods();
-  const [files, setFiles] = useState<FileEntry[]>(mockFiles); // Simulate for now
-  const [decrypted, setDecrypted] = useState<Record<number, string>>({});
   const [openViewer, setOpenViewer] = useState<null | number>(null);
 
   const source = sources[sourceIndex];
@@ -46,38 +43,22 @@ const EncryptedFileGrid = ({ sourceIndex }: { sourceIndex: number }) => {
     }
     // Simulate decryption
     const decryptedData = atob(file.encrypted);
-    setFiles(fs => {
-      const updated = [...fs];
-      updated[idx] = { ...updated[idx], decrypted: decryptedData };
-      return updated;
-    });
+    const updated = { ...file, decrypted: decryptedData };
+    onUpdateFile(idx, updated);
     toast({ title: "Decryption successful" });
   }
 
   function handleLock(idx: number) {
-    setFiles(fs => {
-      const updated = [...fs];
-      delete updated[idx].decrypted;
-      return updated;
-    });
+    const file = files[idx];
+    const updated = { ...file };
+    delete updated.decrypted;
+    onUpdateFile(idx, updated);
     toast({ title: "Decrypted data removed" });
   }
 
   function handleLike(idx: number) {
-    setFiles(fs => {
-      const updated = [...fs];
-      updated[idx].liked = !updated[idx].liked;
-      return updated;
-    });
-  }
-
-  // Add delete handler
-  function handleDelete(idx: number) {
-    setFiles(fs => {
-      const updated = fs.filter((_, i) => i !== idx);
-      return updated;
-    });
-    toast({ title: "File deleted" });
+    const file = files[idx];
+    onUpdateFile(idx, { ...file, liked: !file.liked });
   }
 
   return (
@@ -90,7 +71,7 @@ const EncryptedFileGrid = ({ sourceIndex }: { sourceIndex: number }) => {
           {/* Delete button (top right corner) */}
           <button
             className="absolute top-2 right-2 z-10 text-sm text-red-400 bg-cyan-950/60 px-2 py-1 rounded hover:bg-red-900/70 hover:text-white font-semibold transition"
-            onClick={() => handleDelete(idx)}
+            onClick={() => onDeleteFile(idx)}
             title="Delete file"
           >
             ×

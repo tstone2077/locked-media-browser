@@ -6,20 +6,74 @@ import { Image, FolderPlus, FilePlus } from "lucide-react";
 import AddFileModal from "./AddFileModal";
 import { Button } from "@/components/ui/button";
 
+type FileEntry = {
+  name: string;
+  type: "image" | "text";
+  encrypted: string;
+  decrypted?: string;
+  liked?: boolean;
+};
+
+const initialFilesPerSource: Record<number, FileEntry[]> = {};
+
 const SourceTabs = () => {
   const { sources } = useSources();
   const [active, setActive] = useState(0);
 
+  // Each source has its own file list
+  const [filesPerSource, setFilesPerSource] = useState<Record<number, FileEntry[]>>(initialFilesPerSource);
+
   // Modal state for "Add File"
   const [addFileOpen, setAddFileOpen] = useState(false);
 
-  // Handle "Add File" action (simply logs for now, real insert would happen here)
   function handleAddFile(dataUrl: string) {
-    // You would likely add the file to state/context or pass it to EncryptedFileGrid
-    // For now, just log to demonstrate
-    console.log("New file data URL:", dataUrl);
-    // Optionally: add logic to pass new file to EncryptedFileGrid
+    // Add a new file to the current source's list
+    setFilesPerSource((prev) => {
+      const sourceFiles = prev[active] ?? [];
+      // Basic image/text type distinction
+      const isImage = dataUrl.startsWith("data:image/");
+      const name = isImage
+        ? `Image-${Date.now()}.png`
+        : `Text-${Date.now()}.txt`;
+      return {
+        ...prev,
+        [active]: [
+          ...sourceFiles,
+          {
+            name,
+            type: isImage ? "image" : "text",
+            encrypted: btoa(dataUrl), // still "encrypted"
+          },
+        ],
+      };
+    });
   }
+
+  function handleDeleteFile(idx: number) {
+    setFilesPerSource(prev => {
+      const sourceFiles = prev[active] ?? [];
+      return {
+        ...prev,
+        [active]: sourceFiles.filter((_, i) => i !== idx),
+      };
+    });
+  }
+
+  function handleUpdateFile(idx: number, updated: FileEntry) {
+    setFilesPerSource(prev => {
+      const files = prev[active] ?? [];
+      const updatedFiles = files.slice();
+      updatedFiles[idx] = updated;
+      return {
+        ...prev,
+        [active]: updatedFiles,
+      };
+    });
+  }
+
+  // Show file count for the current tab
+  const currentFiles = filesPerSource[active] ?? [];
+  const fileCount = currentFiles.length;
 
   if (sources.length === 0) {
     return (
@@ -72,7 +126,20 @@ const SourceTabs = () => {
           </button>
         ))}
       </div>
-      <EncryptedFileGrid sourceIndex={active} />
+      <div className="flex justify-between items-end mb-3">
+        <div>
+          <span className="text-cyan-300 text-sm font-semibold">
+            {fileCount} file{fileCount === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+      {/* Pass current files, plus delete and update handlers */}
+      <EncryptedFileGrid
+        sourceIndex={active}
+        files={currentFiles}
+        onDeleteFile={handleDeleteFile}
+        onUpdateFile={handleUpdateFile}
+      />
     </div>
   );
 };
