@@ -183,7 +183,7 @@ const SourceConfig = () => {
                 </span>
               </div>
             </div>
-            <div className="flex gap-2 ml-6">
+            <div className={s.type === "local" ? "flex flex-col gap-2 ml-6" : "flex gap-2 ml-6"}>
               {s.type === "local" && (
                 <>
                   <Button
@@ -228,7 +228,7 @@ const SourceConfig = () => {
               <Button
                 size="sm"
                 variant="destructive"
-                className="ml-2"
+                className="ml-0"
                 onClick={() => handleRemove(idx)}
               >
                 <Trash2 size={14} />
