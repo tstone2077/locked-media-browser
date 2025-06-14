@@ -8,14 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import { useAsyncEncryption } from "@/hooks/useAsyncEncryption";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 
-type FileEntry = {
-  name: string;
-  type: "image" | "text";
-  encrypted: string;
-  decrypted?: string;
-  liked?: boolean;
-};
-
 const initialFilesPerSource: Record<number, FileEntry[]> = {};
 
 const SourceTabs = () => {

@@ -7,14 +7,25 @@ import { Button } from "@/components/ui/button";
 import JSZip from "jszip";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 
-function exportVault() {
-  const blob = new Blob(["Vault export not implemented yet."], { type: 'application/zip' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "safebox-vault.zip";
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 100);
+function exportVault(filesPerSource: Record<number, FileEntry[]>) {
+  const zip = new JSZip();
+
+  Object.entries(filesPerSource).forEach(([sourceIdx, files]) => {
+    const folder = zip.folder(`source-${sourceIdx}`);
+    files.forEach(file => {
+      // Save encrypted file content, retain original file name
+      folder?.file(file.name, file.encrypted);
+    });
+  });
+
+  zip.generateAsync({ type: 'blob' }).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "safebox-vault.zip";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  });
 }
 
 function importVault(file: File, setFilesPerSource: (updater: (old: Record<number, FileEntry[]>) => Record<number, FileEntry[]>) => void) {
@@ -177,7 +188,7 @@ const SourceConfig = () => {
                     size="sm"
                     variant="outline"
                     className="border-green-500 text-green-400 flex gap-1"
-                    onClick={exportVault}
+                    onClick={() => exportVault(filesPerSource)}
                     title="Export all files"
                   >
                     <Download size={14} />
@@ -228,7 +239,7 @@ const SourceConfig = () => {
       {/* ADD/EDIT SOURCE FORM */}
       {showAdd ? (
         <AddEditSourceDialog
-          key={encryptionMethodsKey + (editIdx !== null ? `-edit-${editIdx}` : '-add')}
+          key={`add-edit-${editIdx !== null ? editIdx : "add"}`}
           form={form}
           setForm={setForm}
           editIdx={editIdx}
