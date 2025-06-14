@@ -1,10 +1,11 @@
-
 import { useSources } from "@/lib/sources";
 import EncryptedFileGrid from "./EncryptedFileGrid";
 import { useState } from "react";
 import { Image, FolderPlus, FilePlus } from "lucide-react";
 import AddFileModal from "./AddFileModal";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { useAsyncEncryption } from "@/hooks/useAsyncEncryption";
 
 type FileEntry = {
   name: string;
@@ -26,27 +27,31 @@ const SourceTabs = () => {
   // Modal state for "Add File"
   const [addFileOpen, setAddFileOpen] = useState(false);
 
+  // encryption
+  const { encrypt, isEncrypting, progress, reset } = useAsyncEncryption();
+  const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
+
   function handleAddFile(dataUrl: string) {
-    // Add a new file to the current source's list
-    setFilesPerSource((prev) => {
+    // This is async, runs in background - user can keep browsing!
+    // Basic image/text type distinction
+    const isImage = dataUrl.startsWith("data:image/");
+    const name = isImage ? `Image-${Date.now()}.png` : `Text-${Date.now()}.txt`;
+    setEncryptionFileName(name);
+
+    // Actually encrypt in background, update progress
+    const encrypted = await encrypt(dataUrl, {});
+    setFilesPerSource(prev => {
       const sourceFiles = prev[active] ?? [];
-      // Basic image/text type distinction
-      const isImage = dataUrl.startsWith("data:image/");
-      const name = isImage
-        ? `Image-${Date.now()}.png`
-        : `Text-${Date.now()}.txt`;
       return {
         ...prev,
         [active]: [
           ...sourceFiles,
-          {
-            name,
-            type: isImage ? "image" : "text",
-            encrypted: btoa(dataUrl), // still "encrypted"
-          },
-        ],
+          { name, type: isImage ? "image" : "text", encrypted }
+        ]
       };
     });
+    setEncryptionFileName(null);
+    reset();
   }
 
   function handleDeleteFile(idx: number) {
@@ -101,15 +106,31 @@ const SourceTabs = () => {
           variant="secondary"
           className="flex items-center gap-2"
           onClick={() => setAddFileOpen(true)}
+          disabled={isEncrypting} // Prevent double "add" while in progress
         >
           <FilePlus className="w-4 h-4" /> Add File
         </Button>
         <AddFileModal
           open={addFileOpen}
-          onOpenChange={setAddFileOpen}
+          onOpenChange={open => {
+            if (!open) setEncryptionFileName(null);
+            setAddFileOpen(open);
+          }}
           onAddFile={handleAddFile}
         />
       </div>
+      {/* Progress bar overlay */}
+      {isEncrypting && (
+        <div className="w-full my-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-cyan-300">
+              Encrypting {encryptionFileName ? <b>{encryptionFileName}</b> : ""}...
+            </span>
+            <span className="text-xs">{progress}%</span>
+          </div>
+          <Progress value={progress} />
+        </div>
+      )}
       <div className="flex gap-2 mb-10 border-b border-cyan-900/50">
         {sources.map((s, idx) => (
           <button
