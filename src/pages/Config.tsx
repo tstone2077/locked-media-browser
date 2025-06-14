@@ -15,8 +15,8 @@ const Config = () => {
         </section>
         <section className="flex-1 bg-[#23243c] rounded-xl shadow-xl p-8 flex flex-col animate-fade-in delay-100">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <span className="inline-block bg-green-500 rounded-lg px-2 py-1 text-xs font-bold mr-2">Source</span>
-            Connections
+            <span className="inline-block bg-green-500 rounded-lg px-2 py-1 text-xs font-bold mr-2">Data Source</span>
+            Data Sources
           </h2>
           <SourceConfig />
         </section>

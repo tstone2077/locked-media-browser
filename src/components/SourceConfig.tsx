@@ -1,10 +1,32 @@
 
-import { useState } from "react";
-import { Image, Lock } from "lucide-react";
+import { useState, useRef } from "react";
+import { Image, Lock, DatabaseBackup, Download, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSources, SourceConfig as SourceConfigType } from "@/lib/sources";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
+
+// Simulated export/import functionality for vault zipping
+function exportVault() {
+  // Simulate export by creating a dummy zip blob
+  const blob = new Blob(["Vault export not implemented yet."], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "safebox-vault.zip";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+function importVault(file: File) {
+  // Simulate import by reading the zip
+  const reader = new FileReader();
+  reader.onload = () => {
+    // Here you would process and restore data
+    alert("Import logic is not implemented yet. Loaded zip: " + file.name);
+  };
+  reader.readAsArrayBuffer(file);
+}
 
 const SourceConfig = () => {
   const { sources, addSource, removeSource } = useSources();
@@ -15,6 +37,15 @@ const SourceConfig = () => {
     type: "dataurl",
     encryption: "",
   });
+  const importRef = useRef<HTMLInputElement | null>(null);
+
+  // Local Storage pseudo-source (always present)
+  const localSource = {
+    name: "Local Storage",
+    type: "local",
+    encryption: "None",
+    isLocal: true,
+  };
 
   function handleAdd() {
     if (!form.name || !form.encryption) return;
@@ -31,10 +62,72 @@ const SourceConfig = () => {
     removeSource(idx);
   }
 
+  function triggerImport() {
+    importRef.current?.click();
+  }
+
+  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files && e.target.files[0]) {
+      importVault(e.target.files[0]);
+      e.target.value = ""; // Reset for future imports
+    }
+  }
+
   return (
     <div>
       <ul className="space-y-4 mb-6">
-        {sources.length === 0 && <li className="opacity-70 text-sm">No sources configured.</li>}
+        {/* LOCAL SOURCE ALWAYS PRESENT */}
+        <li
+          className={cn(
+            "rounded-lg px-4 py-3 bg-[#2a384a]/80 flex items-center justify-between border border-green-900/40 animate-fade-in"
+          )}
+        >
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <DatabaseBackup className="text-green-400" size={18} />
+              <span className="font-medium text-green-200">{localSource.name}</span>
+              <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">LOCAL</span>
+            </div>
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <Lock size={14} className="inline text-green-300/60" />
+              <span className="opacity-90">Encrypted files stored in your browser only.</span>
+            </div>
+          </div>
+          <div className="flex gap-2 ml-6">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-green-500 text-green-400 flex gap-1"
+              onClick={exportVault}
+              title="Export all files"
+            >
+              <Download size={14} />
+              Export Vault
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-green-500 text-green-400 flex gap-1"
+              onClick={triggerImport}
+              title="Import files"
+            >
+              <Upload size={14} />
+              Import Vault
+              <input
+                type="file"
+                accept=".zip"
+                ref={importRef}
+                onChange={handleImport}
+                className="hidden"
+              />
+            </Button>
+          </div>
+        </li>
+
+        {/* DYNAMIC SOURCES */}
+        {sources.length === 0 && (
+          <li className="opacity-70 text-sm">No other data sources configured.</li>
+        )}
         {sources.map((s, idx) => (
           <li
             key={s.name + idx}
@@ -66,6 +159,7 @@ const SourceConfig = () => {
           </li>
         ))}
       </ul>
+      {/* ADD SOURCE FORM */}
       {showAdd ? (
         <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
           <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
