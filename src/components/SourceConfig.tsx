@@ -1,14 +1,12 @@
 
 import { useState, useRef } from "react";
-import { Image, Lock, DatabaseBackup, Download, Upload } from "lucide-react";
+import { Image, Lock, DatabaseBackup, Download, Upload, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSources, SourceConfig as SourceConfigType } from "@/lib/sources";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
 
-// Simulated export/import functionality for vault zipping
 function exportVault() {
-  // Simulate export by creating a dummy zip blob
   const blob = new Blob(["Vault export not implemented yet."], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -19,10 +17,8 @@ function exportVault() {
 }
 
 function importVault(file: File) {
-  // Simulate import by reading the zip
   const reader = new FileReader();
   reader.onload = () => {
-    // Here you would process and restore data
     alert("Import logic is not implemented yet. Loaded zip: " + file.name);
   };
   reader.readAsArrayBuffer(file);
@@ -32,6 +28,7 @@ const SourceConfig = () => {
   const { sources, addSource, removeSource } = useSources();
   const { methods } = useEncryptionMethods();
   const [showAdd, setShowAdd] = useState(false);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<SourceConfigType>({
     name: "",
     type: "dataurl",
@@ -47,9 +44,25 @@ const SourceConfig = () => {
     isLocal: true,
   };
 
-  function handleAdd() {
+  function startEdit(idx: number) {
+    setEditIdx(idx);
+    setShowAdd(true);
+    setForm(sources[idx]);
+  }
+
+  function handleAddOrSave() {
     if (!form.name || !form.encryption) return;
-    addSource(form);
+    if (editIdx !== null) {
+      const updatedSources = sources.map((s, i) => (i === editIdx ? form : s));
+      // Remove all sources and then re-add (matches API on EncryptionConfig)
+      Array(sources.length)
+        .fill(0)
+        .forEach((_, i) => removeSource(0));
+      updatedSources.forEach(s => addSource(s));
+    } else {
+      addSource(form);
+    }
+    setEditIdx(null);
     setForm({
       name: "",
       type: "dataurl",
@@ -60,6 +73,25 @@ const SourceConfig = () => {
 
   function handleRemove(idx: number) {
     removeSource(idx);
+    if (editIdx === idx) {
+      setEditIdx(null);
+      setShowAdd(false);
+      setForm({
+        name: "",
+        type: "dataurl",
+        encryption: "",
+      });
+    }
+  }
+
+  function handleCancel() {
+    setEditIdx(null);
+    setShowAdd(false);
+    setForm({
+      name: "",
+      type: "dataurl",
+      encryption: "",
+    });
   }
 
   function triggerImport() {
@@ -148,22 +180,35 @@ const SourceConfig = () => {
                 </span>
               </div>
             </div>
-            <Button
-              size="sm"
-              variant="destructive"
-              className="ml-6"
-              onClick={() => handleRemove(idx)}
-            >
-              Delete
-            </Button>
+            <div className="flex gap-2 ml-6">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => startEdit(idx)}
+                title="Edit"
+                className="border-green-500 text-green-400"
+              >
+                <Edit size={14} />
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="ml-2"
+                onClick={() => handleRemove(idx)}
+              >
+                <Trash2 size={14} />
+                Delete
+              </Button>
+            </div>
           </li>
         ))}
       </ul>
-      {/* ADD SOURCE FORM */}
+      {/* ADD/EDIT SOURCE FORM */}
       {showAdd ? (
         <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
           <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
-            <Image className="mr-2" /> New Data URL Source
+            <Image className="mr-2" /> {editIdx !== null ? "Edit Data URL Source" : "New Data URL Source"}
           </div>
           <div className="mb-2">
             <label className="text-sm">Name</label>
@@ -190,8 +235,10 @@ const SourceConfig = () => {
             </select>
           </div>
           <div className="flex justify-end space-x-2 mt-3">
-            <Button variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button variant="default" className="bg-green-700 hover:bg-green-500" onClick={handleAdd}>Add</Button>
+            <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+            <Button variant="default" className="bg-green-700 hover:bg-green-500" onClick={handleAddOrSave}>
+              {editIdx !== null ? "Save" : "Add"}
+            </Button>
           </div>
         </div>
       ) : (

@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEncryptionMethods, EncryptionMethodConfig } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 const EncryptionConfig = () => {
   const { methods, addMethod, removeMethod } = useEncryptionMethods();
   const [showAdd, setShowAdd] = useState(false);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<EncryptionMethodConfig>({
     name: "",
     type: "gpg",
@@ -15,20 +16,61 @@ const EncryptionConfig = () => {
     password: "",
   });
 
-  function handleAdd() {
+  function handleEdit(idx: number) {
+    setEditIdx(idx);
+    setForm(methods[idx]);
+    setShowAdd(true);
+  }
+
+  function handleAddOrSave() {
     if (!form.name || !form.privateKey || !form.password) return;
-    addMethod(form);
+    if (editIdx !== null) {
+      // Update the method in-place
+      const updatedMethods = methods.map((m, i) => (i === editIdx ? form : m));
+      // Overwrite all methods (using setMethods is not exposed, only add/remove)
+      // So we clear all then re-add in order, using removeMethod for all, then addMethod for each
+      // It's hacky but works with existing API
+      Array(methods.length)
+        .fill(0)
+        .forEach((_, i) => removeMethod(0));
+      updatedMethods.forEach(m => addMethod(m));
+    } else {
+      addMethod(form);
+    }
     setForm({
       name: "",
       type: "gpg",
       privateKey: "",
       password: "",
     });
+    setEditIdx(null);
     setShowAdd(false);
   }
 
   function handleRemove(idx: number) {
     removeMethod(idx);
+    // Reset edit if deleting the one being edited
+    if (editIdx === idx) {
+      setEditIdx(null);
+      setShowAdd(false);
+      setForm({
+        name: "",
+        type: "gpg",
+        privateKey: "",
+        password: "",
+      });
+    }
+  }
+
+  function handleCancel() {
+    setEditIdx(null);
+    setShowAdd(false);
+    setForm({
+      name: "",
+      type: "gpg",
+      privateKey: "",
+      password: "",
+    });
   }
 
   return (
@@ -56,21 +98,35 @@ const EncryptionConfig = () => {
                 GPG Key <span className="ml-2 opacity-70">{m.privateKey.slice(0, 18)}...</span>
               </div>
             </div>
-            <Button
-              size="sm"
-              variant="destructive"
-              className="ml-6"
-              onClick={() => handleRemove(idx)}
-            >
-              Delete
-            </Button>
+            <div className="flex gap-2 ml-6">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEdit(idx)}
+                title="Edit"
+                className="border-cyan-500 text-cyan-400"
+              >
+                <Edit size={14} />
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleRemove(idx)}
+                title="Delete"
+                className="ml-2"
+              >
+                <Trash2 size={14} />
+                Delete
+              </Button>
+            </div>
           </li>
         ))}
       </ul>
       {showAdd ? (
         <div className="p-4 rounded-xl border border-cyan-700/50 bg-[#191f29] mb-2 animate-scale-in">
           <div className="mb-3 font-semibold text-lg text-cyan-400 flex items-center">
-            <Lock className="mr-2" /> New GPG Key
+            <Lock className="mr-2" /> {editIdx !== null ? "Edit GPG Key" : "New GPG Key"}
           </div>
           <div className="mb-2">
             <label className="text-sm">Name</label>
@@ -99,8 +155,10 @@ const EncryptionConfig = () => {
             />
           </div>
           <div className="flex justify-end space-x-2 mt-3">
-            <Button variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button variant="default" onClick={handleAdd} className="bg-cyan-700 hover:bg-cyan-500">Add</Button>
+            <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+            <Button variant="default" onClick={handleAddOrSave} className="bg-cyan-700 hover:bg-cyan-500">
+              {editIdx !== null ? "Save" : "Add"}
+            </Button>
           </div>
         </div>
       ) : (
