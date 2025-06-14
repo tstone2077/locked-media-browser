@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Image, Lock, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -6,6 +7,7 @@ import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
 import JSZip from "jszip";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 function exportVault(filesPerSource: Record<number, FileEntry[]>) {
   const zip = new JSZip();
@@ -270,20 +272,34 @@ function AddEditSourceDialog({ form, setForm, editIdx, handleAddOrSave, handleCa
       <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
         <HardDrive className="mr-2" /> {editIdx !== null ? (form.type === "local" ? "Edit Local Storage Source" : "Edit Data URL Source") : (form.type === "local" ? "New Local Storage Source" : "New Data URL Source")}
       </div>
+      {/* ToggleGroup for Source Type */}
       <div className="mb-2">
-        <label className="text-sm">Type</label>
-        <select
-          className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
+        <label className="text-sm block mb-1">Type</label>
+        <ToggleGroup
+          type="single"
           value={form.type}
-          onChange={e => setForm(f => ({
-            ...f,
-            type: e.target.value as "local" | "dataurl",
-          }))}
+          onValueChange={v => {
+            if (!v) return;
+            setForm(f => ({
+              ...f,
+              type: v as "local" | "dataurl"
+            }));
+          }}
+          className="mb-2"
         >
           {SOURCE_TYPES.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <ToggleGroupItem
+              key={opt.value}
+              value={opt.value}
+              className={
+                "px-4 py-2 rounded-xl data-[state=on]:bg-green-700 data-[state=on]:text-white data-[state=on]:border-green-400 border border-green-600 mx-0.5 " +
+                (form.type === opt.value ? "ring-2 ring-green-400" : "")
+              }
+            >
+              {opt.label}
+            </ToggleGroupItem>
           ))}
-        </select>
+        </ToggleGroup>
       </div>
       <div className="mb-2">
         <label className="text-sm">Name</label>

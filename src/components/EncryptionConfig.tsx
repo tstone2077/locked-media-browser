@@ -4,6 +4,7 @@ import { Lock, Edit, Trash2, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEncryptionMethods, EncryptionMethodConfig } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const ENCRYPTION_TYPES = [
   { value: "gpg", label: "GPG" },
@@ -132,6 +133,38 @@ const EncryptionConfig = () => {
           <div className="mb-3 font-semibold text-lg text-cyan-400 flex items-center">
             <Lock className="mr-2" /> {editIdx !== null ? "Edit Encryption Method" : "New Encryption Method"}
           </div>
+
+          {/* ToggleGroup for encryption type */}
+          <div className="mb-2">
+            <label className="text-sm block mb-1">Type</label>
+            <ToggleGroup
+              type="single"
+              value={form.type}
+              onValueChange={v => {
+                if (!v) return;
+                setForm(f => ({
+                  ...f,
+                  type: v as "gpg" | "aes-256",
+                  privateKey: v === "gpg" ? (f.privateKey ?? "") : undefined,
+                }));
+              }}
+              className="mb-2"
+            >
+              {ENCRYPTION_TYPES.map(opt => (
+                <ToggleGroupItem
+                  key={opt.value}
+                  value={opt.value}
+                  className={
+                    "px-4 py-2 rounded-xl data-[state=on]:bg-cyan-700 data-[state=on]:text-white data-[state=on]:border-cyan-400 border border-cyan-600 mx-0.5 " +
+                    (form.type === opt.value ? "ring-2 ring-cyan-400" : "")
+                  }
+                >
+                  {opt.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+
           <div className="mb-2">
             <label className="text-sm">Name</label>
             <input
@@ -140,24 +173,6 @@ const EncryptionConfig = () => {
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               autoFocus
             />
-          </div>
-          <div className="mb-2">
-            <label className="text-sm">Type</label>
-            <select
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-cyan-600"
-              value={form.type}
-              onChange={e =>
-                setForm(f => ({
-                  ...f,
-                  type: e.target.value as "gpg" | "aes-256",
-                  privateKey: e.target.value === "gpg" ? (f.privateKey ?? "") : undefined,
-                }))
-              }
-            >
-              {ENCRYPTION_TYPES.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
           </div>
           {form.type === "gpg" && (
             <div className="mb-2">
