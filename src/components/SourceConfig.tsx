@@ -1,6 +1,6 @@
 
 import { useState, useRef } from "react";
-import { Image, Lock, DatabaseBackup, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
+import { Image, Lock, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSources, SourceConfig as SourceConfigType } from "@/lib/sources";
 import { useEncryptionMethods } from "@/lib/encryption";
@@ -31,7 +31,7 @@ const SOURCE_TYPES = [
 
 const SourceConfig = () => {
   const { sources, addSource, removeSource } = useSources();
-  const { methods } = useEncryptionMethods();
+  // Removed: const { methods } = useEncryptionMethods();
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<SourceConfigType>({
@@ -188,56 +188,13 @@ const SourceConfig = () => {
       </ul>
       {/* ADD/EDIT SOURCE FORM */}
       {showAdd ? (
-        <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
-          <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
-            <HardDrive className="mr-2" /> {editIdx !== null ? (form.type === "local" ? "Edit Local Storage Source" : "Edit Data URL Source") : (form.type === "local" ? "New Local Storage Source" : "New Data URL Source")}
-          </div>
-          <div className="mb-2">
-            <label className="text-sm">Type</label>
-            <select
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
-              value={form.type}
-              onChange={e => setForm(f => ({
-                ...f,
-                type: e.target.value as "local" | "dataurl",
-              }))}
-            >
-              {SOURCE_TYPES.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-2">
-            <label className="text-sm">Name</label>
-            <input
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              autoFocus
-            />
-          </div>
-          <div className="mb-2">
-            <label className="text-sm">Encryption Method</label>
-            <select
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
-              value={form.encryption}
-              onChange={e => setForm(f => ({ ...f, encryption: e.target.value }))}
-            >
-              <option value="">Choose...</option>
-              {methods.map((m, idx) => (
-                <option key={m.name + idx} value={m.name}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex justify-end space-x-2 mt-3">
-            <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
-            <Button variant="default" className="bg-green-700 hover:bg-green-500" onClick={handleAddOrSave}>
-              {editIdx !== null ? "Save" : "Add"}
-            </Button>
-          </div>
-        </div>
+        <AddEditSourceDialog
+          form={form}
+          setForm={setForm}
+          editIdx={editIdx}
+          handleAddOrSave={handleAddOrSave}
+          handleCancel={handleCancel}
+        />
       ) : (
         <Button variant="outline" onClick={() => setShowAdd(true)} className="w-full mt-2 text-green-400 border-green-500 flex gap-2">
           <HardDrive size={16} /> Add Data Source
@@ -247,4 +204,69 @@ const SourceConfig = () => {
   );
 };
 
+// Factor out dialog so hook call gets latest methods *on each render*
+function AddEditSourceDialog({ form, setForm, editIdx, handleAddOrSave, handleCancel }: {
+  form: SourceConfigType;
+  setForm: React.Dispatch<React.SetStateAction<SourceConfigType>>;
+  editIdx: number | null;
+  handleAddOrSave: () => void;
+  handleCancel: () => void;
+}) {
+  const { methods } = useEncryptionMethods(); // Reads latest on each render
+
+  return (
+    <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
+      <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
+        <HardDrive className="mr-2" /> {editIdx !== null ? (form.type === "local" ? "Edit Local Storage Source" : "Edit Data URL Source") : (form.type === "local" ? "New Local Storage Source" : "New Data URL Source")}
+      </div>
+      <div className="mb-2">
+        <label className="text-sm">Type</label>
+        <select
+          className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
+          value={form.type}
+          onChange={e => setForm(f => ({
+            ...f,
+            type: e.target.value as "local" | "dataurl",
+          }))}
+        >
+          {SOURCE_TYPES.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="mb-2">
+        <label className="text-sm">Name</label>
+        <input
+          className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+          value={form.name}
+          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          autoFocus
+        />
+      </div>
+      <div className="mb-2">
+        <label className="text-sm">Encryption Method</label>
+        <select
+          className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
+          value={form.encryption}
+          onChange={e => setForm(f => ({ ...f, encryption: e.target.value }))}
+        >
+          <option value="">Choose...</option>
+          {methods.map((m, idx) => (
+            <option key={m.name + idx} value={m.name}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex justify-end space-x-2 mt-3">
+        <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+        <Button variant="default" className="bg-green-700 hover:bg-green-500" onClick={handleAddOrSave}>
+          {editIdx !== null ? "Save" : "Add"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default SourceConfig;
+
