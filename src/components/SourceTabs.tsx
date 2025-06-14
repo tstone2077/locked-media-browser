@@ -2,11 +2,24 @@
 import { useSources } from "@/lib/sources";
 import EncryptedFileGrid from "./EncryptedFileGrid";
 import { useState } from "react";
-import { Image } from "lucide-react";
+import { Image, FolderPlus, FilePlus } from "lucide-react";
+import AddFileModal from "./AddFileModal";
+import { Button } from "@/components/ui/button";
 
 const SourceTabs = () => {
   const { sources } = useSources();
   const [active, setActive] = useState(0);
+
+  // Modal state for "Add File"
+  const [addFileOpen, setAddFileOpen] = useState(false);
+
+  // Handle "Add File" action (simply logs for now, real insert would happen here)
+  function handleAddFile(dataUrl: string) {
+    // You would likely add the file to state/context or pass it to EncryptedFileGrid
+    // For now, just log to demonstrate
+    console.log("New file data URL:", dataUrl);
+    // Optionally: add logic to pass new file to EncryptedFileGrid
+  }
 
   if (sources.length === 0) {
     return (
@@ -22,6 +35,27 @@ const SourceTabs = () => {
 
   return (
     <div className="w-full">
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="secondary"
+          className="flex items-center gap-2"
+          onClick={() => alert('Folder creation not implemented yet!')}
+        >
+          <FolderPlus className="w-4 h-4" /> Add Folder
+        </Button>
+        <Button
+          variant="secondary"
+          className="flex items-center gap-2"
+          onClick={() => setAddFileOpen(true)}
+        >
+          <FilePlus className="w-4 h-4" /> Add File
+        </Button>
+        <AddFileModal
+          open={addFileOpen}
+          onOpenChange={setAddFileOpen}
+          onAddFile={handleAddFile}
+        />
+      </div>
       <div className="flex gap-2 mb-10 border-b border-cyan-900/50">
         {sources.map((s, idx) => (
           <button
