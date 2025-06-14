@@ -3,7 +3,7 @@ import { useSessionStorage } from "./session-storage";
 
 export type SourceConfig = {
   name: string;
-  type: "dataurl";
+  type: "local" | "dataurl";
   encryption: string; // Encryption method name
 };
 

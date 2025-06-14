@@ -3,9 +3,9 @@ import { useSessionStorage } from "./session-storage";
 
 export type EncryptionMethodConfig = {
   name: string;
-  type: "gpg";
-  privateKey: string;
-  password: string;
+  type: "gpg" | "aes-256";
+  privateKey?: string; // for gpg
+  password: string; // for gpg or AES-256
 };
 
 const ENCRYPTION_KEY = "encryption-methods";

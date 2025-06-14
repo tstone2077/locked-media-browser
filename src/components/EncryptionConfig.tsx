@@ -1,9 +1,14 @@
 
 import { useState } from "react";
-import { Lock, Edit, Trash2 } from "lucide-react";
+import { Lock, Edit, Trash2, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEncryptionMethods, EncryptionMethodConfig } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
+
+const ENCRYPTION_TYPES = [
+  { value: "gpg", label: "GPG" },
+  { value: "aes-256", label: "AES-256" }
+];
 
 const EncryptionConfig = () => {
   const { methods, addMethod, removeMethod } = useEncryptionMethods();
@@ -14,7 +19,7 @@ const EncryptionConfig = () => {
     type: "gpg",
     privateKey: "",
     password: "",
-  });
+  } as EncryptionMethodConfig);
 
   function handleEdit(idx: number) {
     setEditIdx(idx);
@@ -23,13 +28,10 @@ const EncryptionConfig = () => {
   }
 
   function handleAddOrSave() {
-    if (!form.name || !form.privateKey || !form.password) return;
+    if (!form.name || !form.password) return;
+    if (form.type === "gpg" && !form.privateKey) return;
     if (editIdx !== null) {
-      // Update the method in-place
       const updatedMethods = methods.map((m, i) => (i === editIdx ? form : m));
-      // Overwrite all methods (using setMethods is not exposed, only add/remove)
-      // So we clear all then re-add in order, using removeMethod for all, then addMethod for each
-      // It's hacky but works with existing API
       Array(methods.length)
         .fill(0)
         .forEach((_, i) => removeMethod(0));
@@ -49,7 +51,6 @@ const EncryptionConfig = () => {
 
   function handleRemove(idx: number) {
     removeMethod(idx);
-    // Reset edit if deleting the one being edited
     if (editIdx === idx) {
       setEditIdx(null);
       setShowAdd(false);
@@ -91,11 +92,14 @@ const EncryptionConfig = () => {
                 <Lock className="text-cyan-400" size={18} />
                 <span className="font-medium text-cyan-200">{m.name}</span>
                 <span className="text-xs tracking-tight bg-cyan-900/30 text-cyan-200 px-2 py-0.5 rounded ml-2">
-                  {m.type.toUpperCase()}
+                  {m.type === "gpg" ? "GPG" : "AES-256"}
                 </span>
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                GPG Key <span className="ml-2 opacity-70">{m.privateKey.slice(0, 18)}...</span>
+                {m.type === "gpg"
+                  ? <>GPG Key <span className="ml-2 opacity-70">{(m.privateKey ?? '').slice(0, 18)}...</span></>
+                  : <>AES-256 Password</>
+                }
               </div>
             </div>
             <div className="flex gap-2 ml-6">
@@ -126,7 +130,7 @@ const EncryptionConfig = () => {
       {showAdd ? (
         <div className="p-4 rounded-xl border border-cyan-700/50 bg-[#191f29] mb-2 animate-scale-in">
           <div className="mb-3 font-semibold text-lg text-cyan-400 flex items-center">
-            <Lock className="mr-2" /> {editIdx !== null ? "Edit GPG Key" : "New GPG Key"}
+            <Lock className="mr-2" /> {editIdx !== null ? "Edit Encryption Method" : "New Encryption Method"}
           </div>
           <div className="mb-2">
             <label className="text-sm">Name</label>
@@ -138,15 +142,37 @@ const EncryptionConfig = () => {
             />
           </div>
           <div className="mb-2">
-            <label className="text-sm">Private Key</label>
-            <textarea
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-cyan-600 h-20"
-              value={form.privateKey}
-              onChange={e => setForm(f => ({ ...f, privateKey: e.target.value }))}
-            />
+            <label className="text-sm">Type</label>
+            <select
+              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-cyan-600"
+              value={form.type}
+              onChange={e =>
+                setForm(f => ({
+                  ...f,
+                  type: e.target.value as "gpg" | "aes-256",
+                  privateKey: e.target.value === "gpg" ? (f.privateKey ?? "") : undefined,
+                }))
+              }
+            >
+              {ENCRYPTION_TYPES.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
+          {form.type === "gpg" && (
+            <div className="mb-2">
+              <label className="text-sm">Private Key</label>
+              <textarea
+                className="w-full mt-1 p-2 rounded bg-[#10151e] border border-cyan-600 h-20"
+                value={form.privateKey ?? ""}
+                onChange={e => setForm(f => ({ ...f, privateKey: e.target.value }))}
+              />
+            </div>
+          )}
           <div className="mb-2">
-            <label className="text-sm">Password</label>
+            <label className="text-sm">
+              {form.type === "gpg" ? "Password" : "AES-256 Password"}
+            </label>
             <input
               type="password"
               className="w-full mt-1 p-2 rounded bg-[#10151e] border border-cyan-600"
@@ -163,7 +189,7 @@ const EncryptionConfig = () => {
         </div>
       ) : (
         <Button variant="outline" onClick={() => setShowAdd(true)} className="w-full mt-2 text-cyan-400 border-cyan-500 flex gap-2">
-          <Lock size={16} /> Add GPG Encryption
+          <KeyRound size={16} /> Add Encryption Method
         </Button>
       )}
     </div>

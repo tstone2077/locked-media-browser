@@ -1,6 +1,6 @@
 
 import { useState, useRef } from "react";
-import { Image, Lock, DatabaseBackup, Download, Upload, Edit, Trash2 } from "lucide-react";
+import { Image, Lock, DatabaseBackup, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSources, SourceConfig as SourceConfigType } from "@/lib/sources";
 import { useEncryptionMethods } from "@/lib/encryption";
@@ -24,6 +24,11 @@ function importVault(file: File) {
   reader.readAsArrayBuffer(file);
 }
 
+const SOURCE_TYPES = [
+  { value: "local", label: "Local Storage" },
+  { value: "dataurl", label: "Data URL" },
+];
+
 const SourceConfig = () => {
   const { sources, addSource, removeSource } = useSources();
   const { methods } = useEncryptionMethods();
@@ -31,18 +36,10 @@ const SourceConfig = () => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<SourceConfigType>({
     name: "",
-    type: "dataurl",
+    type: "local",
     encryption: "",
   });
   const importRef = useRef<HTMLInputElement | null>(null);
-
-  // Local Storage pseudo-source (always present)
-  const localSource = {
-    name: "Local Storage",
-    type: "local",
-    encryption: "None",
-    isLocal: true,
-  };
 
   function startEdit(idx: number) {
     setEditIdx(idx);
@@ -54,7 +51,6 @@ const SourceConfig = () => {
     if (!form.name || !form.encryption) return;
     if (editIdx !== null) {
       const updatedSources = sources.map((s, i) => (i === editIdx ? form : s));
-      // Remove all sources and then re-add (matches API on EncryptionConfig)
       Array(sources.length)
         .fill(0)
         .forEach((_, i) => removeSource(0));
@@ -65,7 +61,7 @@ const SourceConfig = () => {
     setEditIdx(null);
     setForm({
       name: "",
-      type: "dataurl",
+      type: "local",
       encryption: "",
     });
     setShowAdd(false);
@@ -78,7 +74,7 @@ const SourceConfig = () => {
       setShowAdd(false);
       setForm({
         name: "",
-        type: "dataurl",
+        type: "local",
         encryption: "",
       });
     }
@@ -89,7 +85,7 @@ const SourceConfig = () => {
     setShowAdd(false);
     setForm({
       name: "",
-      type: "dataurl",
+      type: "local",
       encryption: "",
     });
   }
@@ -108,57 +104,8 @@ const SourceConfig = () => {
   return (
     <div>
       <ul className="space-y-4 mb-6">
-        {/* LOCAL SOURCE ALWAYS PRESENT */}
-        <li
-          className={cn(
-            "rounded-lg px-4 py-3 bg-[#2a384a]/80 flex items-center justify-between border border-green-900/40 animate-fade-in"
-          )}
-        >
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <DatabaseBackup className="text-green-400" size={18} />
-              <span className="font-medium text-green-200">{localSource.name}</span>
-              <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">LOCAL</span>
-            </div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <Lock size={14} className="inline text-green-300/60" />
-              <span className="opacity-90">Encrypted files stored in your browser only.</span>
-            </div>
-          </div>
-          <div className="flex gap-2 ml-6">
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-green-500 text-green-400 flex gap-1"
-              onClick={exportVault}
-              title="Export all files"
-            >
-              <Download size={14} />
-              Export Vault
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-green-500 text-green-400 flex gap-1"
-              onClick={triggerImport}
-              title="Import files"
-            >
-              <Upload size={14} />
-              Import Vault
-              <input
-                type="file"
-                accept=".zip"
-                ref={importRef}
-                onChange={handleImport}
-                className="hidden"
-              />
-            </Button>
-          </div>
-        </li>
-
-        {/* DYNAMIC SOURCES */}
         {sources.length === 0 && (
-          <li className="opacity-70 text-sm">No other data sources configured.</li>
+          <li className="opacity-70 text-sm">No data sources configured.</li>
         )}
         {sources.map((s, idx) => (
           <li
@@ -169,9 +116,13 @@ const SourceConfig = () => {
           >
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <Image className="text-green-400" size={18} />
+                {s.type === "local" ? (
+                  <HardDrive className="text-green-400" size={18} />
+                ) : (
+                  <Image className="text-green-400" size={18} />
+                )}
                 <span className="font-medium text-green-200">{s.name}</span>
-                <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">{s.type.toUpperCase()}</span>
+                <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">{s.type === "local" ? "LOCAL" : s.type.toUpperCase()}</span>
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <Lock size={14} className="inline text-green-300/60" />
@@ -181,6 +132,37 @@ const SourceConfig = () => {
               </div>
             </div>
             <div className="flex gap-2 ml-6">
+              {s.type === "local" && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-green-500 text-green-400 flex gap-1"
+                    onClick={exportVault}
+                    title="Export all files"
+                  >
+                    <Download size={14} />
+                    Export Vault
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-green-500 text-green-400 flex gap-1"
+                    onClick={triggerImport}
+                    title="Import files"
+                  >
+                    <Upload size={14} />
+                    Import Vault
+                    <input
+                      type="file"
+                      accept=".zip"
+                      ref={importRef}
+                      onChange={handleImport}
+                      className="hidden"
+                    />
+                  </Button>
+                </>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -208,7 +190,22 @@ const SourceConfig = () => {
       {showAdd ? (
         <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
           <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
-            <Image className="mr-2" /> {editIdx !== null ? "Edit Data URL Source" : "New Data URL Source"}
+            <HardDrive className="mr-2" /> {editIdx !== null ? (form.type === "local" ? "Edit Local Storage Source" : "Edit Data URL Source") : (form.type === "local" ? "New Local Storage Source" : "New Data URL Source")}
+          </div>
+          <div className="mb-2">
+            <label className="text-sm">Type</label>
+            <select
+              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
+              value={form.type}
+              onChange={e => setForm(f => ({
+                ...f,
+                type: e.target.value as "local" | "dataurl",
+              }))}
+            >
+              {SOURCE_TYPES.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
           <div className="mb-2">
             <label className="text-sm">Name</label>
@@ -243,7 +240,7 @@ const SourceConfig = () => {
         </div>
       ) : (
         <Button variant="outline" onClick={() => setShowAdd(true)} className="w-full mt-2 text-green-400 border-green-500 flex gap-2">
-          <Image size={16} /> Add Data URL Source
+          <HardDrive size={16} /> Add Data Source
         </Button>
       )}
     </div>

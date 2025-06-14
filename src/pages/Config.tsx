@@ -8,14 +8,12 @@ const Config = () => {
       <div className="m-auto flex w-full max-w-6xl flex-col md:flex-row gap-8 py-16">
         <section className="flex-1 bg-[#23243c] rounded-xl shadow-xl p-8 flex flex-col animate-fade-in">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            {/* Removed "Encryption" pill */}
-            Methods
+            Encryption Methods
           </h2>
           <EncryptionConfig />
         </section>
         <section className="flex-1 bg-[#23243c] rounded-xl shadow-xl p-8 flex flex-col animate-fade-in delay-100">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            {/* Removed "Data Source" pill */}
             Data Sources
           </h2>
           <SourceConfig />
@@ -26,4 +24,3 @@ const Config = () => {
 };
 
 export default Config;
-
