@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Image, Lock, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -183,57 +182,88 @@ const SourceConfig = () => {
                 </span>
               </div>
             </div>
-            <div className={s.type === "local" ? "flex flex-col gap-2 ml-6" : "flex gap-2 ml-6"}>
-              {s.type === "local" && (
+
+            {/* Actions - change arrangement here */}
+            <div className="flex items-center gap-2 ml-6">
+              {s.type === "local" ? (
+                <>
+                  {/* Vertical button stack for Export, Import, Edit */}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-500 text-green-400 flex gap-1"
+                      onClick={() => exportVault(filesPerSource)}
+                      title="Export all files"
+                    >
+                      <Download size={14} />
+                      Export Vault
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-500 text-green-400 flex gap-1"
+                      onClick={triggerImport}
+                      title="Import files"
+                    >
+                      <Upload size={14} />
+                      Import Vault
+                      <input
+                        type="file"
+                        accept=".zip"
+                        ref={importRef}
+                        onChange={handleImport}
+                        className="hidden"
+                      />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => startEdit(idx)}
+                      title="Edit"
+                      className="border-green-500 text-green-400"
+                    >
+                      <Edit size={14} />
+                      Edit
+                    </Button>
+                  </div>
+                  {/* Delete button to the right, vertically centered */}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="ml-4 self-center"
+                    onClick={() => handleRemove(idx)}
+                    title="Delete Source"
+                  >
+                    <Trash2 size={14} />
+                    Delete
+                  </Button>
+                </>
+              ) : (
+                // For non-local data sources, keep layout as before
                 <>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-green-500 text-green-400 flex gap-1"
-                    onClick={() => exportVault(filesPerSource)}
-                    title="Export all files"
+                    onClick={() => startEdit(idx)}
+                    title="Edit"
+                    className="border-green-500 text-green-400"
                   >
-                    <Download size={14} />
-                    Export Vault
+                    <Edit size={14} />
+                    Edit
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="border-green-500 text-green-400 flex gap-1"
-                    onClick={triggerImport}
-                    title="Import files"
+                    variant="destructive"
+                    className="ml-0"
+                    onClick={() => handleRemove(idx)}
+                    title="Delete Source"
                   >
-                    <Upload size={14} />
-                    Import Vault
-                    <input
-                      type="file"
-                      accept=".zip"
-                      ref={importRef}
-                      onChange={handleImport}
-                      className="hidden"
-                    />
+                    <Trash2 size={14} />
+                    Delete
                   </Button>
                 </>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => startEdit(idx)}
-                title="Edit"
-                className="border-green-500 text-green-400"
-              >
-                <Edit size={14} />
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="ml-0"
-                onClick={() => handleRemove(idx)}
-              >
-                <Trash2 size={14} />
-                Delete
-              </Button>
             </div>
           </li>
         ))}
