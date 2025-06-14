@@ -1,6 +1,7 @@
 
+import '@testing-library/jest-dom'; // For .toBeInTheDocument() matcher
 import React from "react";
-import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SourceConfig from "./SourceConfig";
 import EncryptionConfig from "./EncryptionConfig";
