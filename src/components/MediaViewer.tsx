@@ -39,9 +39,10 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
         <div className="w-full flex items-center justify-center min-h-[230px]">
           {file.type === "image" && file.decrypted ? (
             <img
-              src={"/placeholder.svg"}
+              src={file.decrypted}
               alt={file.name}
-              className="rounded-xl max-h-80 max-w-[420px] shadow-md border border-cyan-900/50 animate-fade-in"
+              className="rounded-xl max-h-80 max-w-[420px] w-auto h-auto shadow-md border border-cyan-900/50 animate-fade-in"
+              style={{ objectFit: "contain" }}
             />
           ) : (
             <div className="border border-cyan-600 rounded-md p-4 bg-cyan-900/20 w-full text-left text-cyan-100 max-h-80 overflow-auto animate-fade-in whitespace-pre-line">
@@ -69,3 +70,4 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
 };
 
 export default MediaViewer;
+
