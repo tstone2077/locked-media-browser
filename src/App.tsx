@@ -17,9 +17,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* "/" renders Index, which now handles modal for Config */}
           <Route path="/" element={<Index />} />
-          <Route path="/config" element={<Config />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Remove direct Config route - modal now overlays via Index */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
