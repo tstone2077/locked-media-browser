@@ -10,6 +10,10 @@ type AddFileModalProps = {
   onAddFile: (dataUrl: string) => void;
 };
 
+function isImageDataUrl(url: string) {
+  return url.startsWith("data:image/");
+}
+
 const AddFileModal = ({ open, onOpenChange, onAddFile }: AddFileModalProps) => {
   const [dataUrl, setDataUrl] = useState("");
 
@@ -24,6 +28,8 @@ const AddFileModal = ({ open, onOpenChange, onAddFile }: AddFileModalProps) => {
     setDataUrl("");
     onOpenChange(false);
   }
+
+  const showPreview = !!dataUrl && isImageDataUrl(dataUrl);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -41,6 +47,16 @@ const AddFileModal = ({ open, onOpenChange, onAddFile }: AddFileModalProps) => {
           onChange={e => setDataUrl(e.target.value)}
           autoFocus
         />
+        {showPreview && (
+          <div className="flex justify-center mt-4">
+            <img
+              src={dataUrl}
+              alt="Preview"
+              className="max-h-40 max-w-full rounded border border-cyan-800 shadow"
+              style={{ background: "#131b29" }}
+            />
+          </div>
+        )}
         <DialogFooter>
           <Button variant="secondary" onClick={handleClose}>
             Cancel

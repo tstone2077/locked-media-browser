@@ -71,6 +71,15 @@ const EncryptedFileGrid = ({ sourceIndex }: { sourceIndex: number }) => {
     });
   }
 
+  // Add delete handler
+  function handleDelete(idx: number) {
+    setFiles(fs => {
+      const updated = fs.filter((_, i) => i !== idx);
+      return updated;
+    });
+    toast({ title: "File deleted" });
+  }
+
   return (
     <div className="grid gap-8 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 animate-fade-in">
       {files.map((file, idx) => (
@@ -78,6 +87,15 @@ const EncryptedFileGrid = ({ sourceIndex }: { sourceIndex: number }) => {
           key={file.name + idx}
           className="flex flex-col items-center justify-center p-6 rounded-xl bg-[#161e2f] shadow-lg border border-cyan-900/40 relative group"
         >
+          {/* Delete button (top right corner) */}
+          <button
+            className="absolute top-2 right-2 z-10 text-sm text-red-400 bg-cyan-950/60 px-2 py-1 rounded hover:bg-red-900/70 hover:text-white font-semibold transition"
+            onClick={() => handleDelete(idx)}
+            title="Delete file"
+          >
+            ×
+            <span className="sr-only">Delete</span>
+          </button>
           {/* Lock or Thumbnail */}
           {!file.decrypted ? (
             <button
@@ -95,7 +113,7 @@ const EncryptedFileGrid = ({ sourceIndex }: { sourceIndex: number }) => {
             >
               {file.type === "image" ? (
                 <img
-                  src={"/placeholder.svg"}
+                  src={file.decrypted.startsWith("data:image/") ? file.decrypted : "/placeholder.svg"}
                   alt={file.name}
                   className="w-full h-full object-cover animate-fade-in"
                   style={{
