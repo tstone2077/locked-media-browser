@@ -1,9 +1,8 @@
-
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
 export type FileEntry = {
   name: string;
-  type: "image" | "text";
+  type: "image" | "text" | "folder"; // Added "folder"
   encrypted: string;
   decrypted?: string;
   liked?: boolean;

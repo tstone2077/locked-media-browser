@@ -20,6 +20,10 @@ const SourceTabs = () => {
   // Modal state for "Add File"
   const [addFileOpen, setAddFileOpen] = useState(false);
 
+  // New state for folder modal
+  const [addFolderOpen, setAddFolderOpen] = useState(false);
+  const [folderName, setFolderName] = useState("");
+
   // encryption
   const { encrypt, isEncrypting, progress, reset } = useAsyncEncryption();
   const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
@@ -45,6 +49,27 @@ const SourceTabs = () => {
     });
     setEncryptionFileName(null);
     reset();
+  }
+
+  // New: Add Folder logic
+  function handleAddFolder() {
+    if (!folderName.trim()) return;
+    setFilesPerSource(prev => {
+      const sourceFiles = prev[active] ?? [];
+      return {
+        ...prev,
+        [active]: [
+          ...sourceFiles,
+          {
+            name: folderName.trim(),
+            type: "folder",
+            encrypted: "", // Folders don't store data
+          }
+        ]
+      };
+    });
+    setFolderName("");
+    setAddFolderOpen(false);
   }
 
   function handleDeleteFile(idx: number) {
@@ -91,7 +116,7 @@ const SourceTabs = () => {
         <Button
           variant="secondary"
           className="flex items-center gap-2"
-          onClick={() => alert('Folder creation not implemented yet!')}
+          onClick={() => setAddFolderOpen(true)}
         >
           <FolderPlus className="w-4 h-4" /> Add Folder
         </Button>
@@ -112,6 +137,40 @@ const SourceTabs = () => {
           onAddFile={handleAddFile}
         />
       </div>
+
+      {/* Add Folder Modal */}
+      {addFolderOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-[#10151e] p-6 rounded-lg shadow-lg w-80 flex flex-col animate-scale-in">
+            <h2 className="text-lg font-semibold mb-3 text-cyan-300 flex items-center gap-2">
+              <FolderPlus className="w-5 h-5" /> Add Folder
+            </h2>
+            <input
+              type="text"
+              placeholder="Folder name"
+              className="mb-4 px-3 py-2 rounded bg-[#191f29] border border-cyan-700 text-white"
+              value={folderName}
+              onChange={e => setFolderName(e.target.value)}
+              autoFocus
+              maxLength={60}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => { setAddFolderOpen(false); setFolderName(""); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                className="bg-cyan-700 hover:bg-cyan-500"
+                onClick={handleAddFolder}
+                disabled={!folderName.trim()}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Progress bar overlay */}
       {isEncrypting && (
         <div className="w-full my-4">
