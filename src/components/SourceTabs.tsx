@@ -31,7 +31,7 @@ const SourceTabs = () => {
   const { encrypt, isEncrypting, progress, reset } = useAsyncEncryption();
   const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
 
-  function handleAddFile(dataUrl: string) {
+  async function handleAddFile(dataUrl: string) {
     // This is async, runs in background - user can keep browsing!
     // Basic image/text type distinction
     const isImage = dataUrl.startsWith("data:image/");
