@@ -6,6 +6,7 @@ import AddFileModal from "./AddFileModal";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAsyncEncryption } from "@/hooks/useAsyncEncryption";
+import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 
 type FileEntry = {
   name: string;
@@ -21,8 +22,8 @@ const SourceTabs = () => {
   const { sources } = useSources();
   const [active, setActive] = useState(0);
 
-  // Each source has its own file list
-  const [filesPerSource, setFilesPerSource] = useState<Record<number, FileEntry[]>>(initialFilesPerSource);
+  // Use context for file state
+  const { filesPerSource, setFilesPerSource } = useFileVault();
 
   // Modal state for "Add File"
   const [addFileOpen, setAddFileOpen] = useState(false);

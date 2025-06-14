@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { useSources, SourceConfig as SourceConfigType } from "@/lib/sources";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
+import JSZip from "jszip";
+import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 
 function exportVault() {
   const blob = new Blob(["Vault export not implemented yet."], { type: 'application/zip' });
@@ -15,10 +17,48 @@ function exportVault() {
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
-function importVault(file: File) {
+function importVault(file: File, setFilesPerSource: (updater: (old: Record<number, FileEntry[]>) => Record<number, FileEntry[]>) => void) {
   const reader = new FileReader();
-  reader.onload = () => {
-    alert("Import logic is not implemented yet. Loaded zip: " + file.name);
+  reader.onload = async () => {
+    const arrayBuffer = reader.result as ArrayBuffer;
+    try {
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const newFiles: Record<number, FileEntry[]> = {};
+
+      const filePromises: Promise<void>[] = [];
+      zip.forEach((relativePath, zipEntry) => {
+        // Expect format: source-INDEX/filename...
+        const match = /^source-(\d+)\/(.+)$/.exec(relativePath);
+        if (!zipEntry.dir && match) {
+          const sourceIdx = parseInt(match[1], 10);
+          const fileName = match[2];
+          // Try to guess file type - fallback to text if unknown
+          let type: "image" | "text" = fileName.endsWith(".png") ? "image" : "text";
+          filePromises.push(
+            zipEntry.async("text").then(content => {
+              if (!newFiles[sourceIdx]) newFiles[sourceIdx] = [];
+              newFiles[sourceIdx].push({
+                name: fileName,
+                type,
+                encrypted: content,
+              });
+            })
+          );
+        }
+      });
+
+      await Promise.all(filePromises);
+      setFilesPerSource(prev => {
+        // Merge: overwrite only the affected sources, preserve others
+        return {
+          ...prev,
+          ...newFiles,
+        };
+      });
+      alert("Import successful! Reload the vault tab to view imported files.");
+    } catch (e) {
+      alert("Error unpacking vault zip: " + (e as Error).message);
+    }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -30,7 +70,7 @@ const SOURCE_TYPES = [
 
 const SourceConfig = () => {
   const { sources, addSource, removeSource } = useSources();
-  // Removed: const { methods } = useEncryptionMethods();
+  const { filesPerSource, setFilesPerSource } = useFileVault();
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<SourceConfigType>({
@@ -39,10 +79,6 @@ const SourceConfig = () => {
     encryption: "",
   });
   const importRef = useRef<HTMLInputElement | null>(null);
-
-  // Add this hook here to get up-to-date methods for the dialog key
-  const { methods } = useEncryptionMethods();
-  const encryptionMethodsKey = methods.map(m => m.name).join(",") + ":" + methods.length;
 
   function startEdit(idx: number) {
     setEditIdx(idx);
@@ -99,7 +135,7 @@ const SourceConfig = () => {
 
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files[0]) {
-      importVault(e.target.files[0]);
+      importVault(e.target.files[0], setFilesPerSource);
       e.target.value = ""; // Reset for future imports
     }
   }
