@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
 import { toast } from "@/hooks/use-toast";
@@ -8,16 +8,18 @@ import { Button } from "@/components/ui/button";
 import { useFileVault } from "@/context/FileVaultContext";
 import { Folder, ChevronLeft } from "lucide-react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import MediaViewer from "./MediaViewer"; // Use static import
+import MediaViewer from "./MediaViewer";
 
 type EncryptedFileGridProps = {
   sourceIndex: number;
   files: FileEntry[];
   onDeleteFile: (idx: number) => void;
   onUpdateFile: (idx: number, updated: FileEntry) => void;
+  currentPath?: string[]; // passed in from parent (SourceTabs) for context
+  onPathChange?: (path: string[]) => void; // called when navigated
 };
 
-const ENCRYPT_PASS = "vault-password"; // TODO: make dynamic
+const ENCRYPT_PASS = "vault-password";
 
 const findFolderNames = (files: FileEntry[]) =>
   files.filter(f => f.type === "folder").map(f => f.name);
@@ -27,12 +29,18 @@ const EncryptedFileGrid = ({
   files,
   onDeleteFile,
   onUpdateFile,
+  currentPath: controlledPath,      // Controlled "currentPath" for parent sync
+  onPathChange,                     // Handler for navigating folders
 }: EncryptedFileGridProps) => {
+  // Internal state only if uncontrolled
+  const [uncontrolledPath, setUncontrolledPath] = useState<string[]>([]);
+
+  // Use controlled "currentPath" if present, else internal state
+  const currentPath = controlledPath ?? uncontrolledPath;
+  const setCurrentPath = onPathChange ?? setUncontrolledPath;
+
   const [selected, setSelected] = useState<number[]>([]);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
-
-  // NEW: currentPath is an array, each element a folder name (for easy up navigation)
-  const [currentPath, setCurrentPath] = useState<string[]>([]);
 
   const [mediaViewer, setMediaViewer] = useState<{
     fileIdx: number;
@@ -40,12 +48,10 @@ const EncryptedFileGrid = ({
   }>({ fileIdx: -1, open: false });
 
   const { encryptData, decryptData } = useCrypto(ENCRYPT_PASS);
-  const { setFilesPerSource, filesPerSource } = useFileVault();
+  const { setFilesPerSource } = useFileVault();
 
-  // Utility to get string path from array for parent matching
   const currentFolder = currentPath.length ? currentPath[currentPath.length - 1] : undefined;
 
-  // Find all folders that are children of the current parent
   function getSubfolders() {
     return files
       .map((f, idx) => ({ ...f, __idx: idx }))
@@ -57,7 +63,6 @@ const EncryptedFileGrid = ({
       );
   }
 
-  // Find all files in the current parent
   function getVisibleFiles() {
     return files
       .map((f, idx) => ({ ...f, __idx: idx }))
@@ -69,7 +74,6 @@ const EncryptedFileGrid = ({
       );
   }
 
-  // NEW: Get folder chain for breadcrumbs
   function getBreadcrumbs() {
     return [
       { label: "Root", value: undefined },
@@ -189,8 +193,6 @@ const EncryptedFileGrid = ({
   // For move menu (list of all folders; could be extended to avoid cyclic move)
   const allFolders = files.filter(f => f.type === "folder").map(f => f.name);
 
-  // --- RENDER ---
-
   return (
     <div>
       {/* Breadcrumb trail */}
@@ -200,7 +202,6 @@ const EncryptedFileGrid = ({
             {getBreadcrumbs().map((crumb, i, arr) => (
               <React.Fragment key={i}>
                 <BreadcrumbItem>
-                  {/* BreadcrumbLink for links (not last), BreadcrumbPage for current */}
                   {i < arr.length - 1 ? (
                     <BreadcrumbLink
                       asChild
@@ -311,14 +312,12 @@ const EncryptedFileGrid = ({
           setOpen={(open: boolean) => setMediaViewer(m => ({ ...m, open }))}
           file={files[mediaViewer.fileIdx] as any}
           onPrev={() => {
-            // Previous file in the visible files
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
             if (currentIdx > 0) {
               setMediaViewer({ fileIdx: filesInCurrent[currentIdx - 1].__idx, open: true });
             }
           }}
           onNext={() => {
-            // Next file in the visible files
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
             if (currentIdx < filesInCurrent.length - 1) {
               setMediaViewer({ fileIdx: filesInCurrent[currentIdx + 1].__idx, open: true });

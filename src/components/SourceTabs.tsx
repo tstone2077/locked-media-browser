@@ -1,3 +1,4 @@
+
 import { useSources } from "@/lib/sources";
 import EncryptedFileGrid from "./EncryptedFileGrid";
 import { useState } from "react";
@@ -24,12 +25,23 @@ const SourceTabs = () => {
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
 
+  // New: track navigation path (folder chain) for each tab
+  const [currentPathPerSource, setCurrentPathPerSource] = useState<Record<number, string[]>>({});
+  // current folder path for this tab
+  const currentPath = currentPathPerSource[active] ?? [];
+  const setCurrentPath = (path: string[]) => {
+    setCurrentPathPerSource(paths => ({
+      ...paths,
+      [active]: path
+    }));
+  };
+  const currentFolder = currentPath.length ? currentPath[currentPath.length - 1] : undefined;
+
   // encryption
   const { encrypt, isEncrypting, progress, reset } = useAsyncEncryption();
   const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
 
   async function handleAddFile(dataUrl: string) {
-    // This is async, runs in background - user can keep browsing!
     // Basic image/text type distinction
     const isImage = dataUrl.startsWith("data:image/");
     const name = isImage ? `Image-${Date.now()}.png` : `Text-${Date.now()}.txt`;
@@ -39,11 +51,12 @@ const SourceTabs = () => {
     const encrypted = await encrypt(dataUrl, {});
     setFilesPerSource(prev => {
       const sourceFiles = prev[active] ?? [];
+      // Add to current folder (not root) if navigated
       return {
         ...prev,
         [active]: [
           ...sourceFiles,
-          { name, type: isImage ? "image" : "text", encrypted }
+          { name, type: isImage ? "image" : "text", encrypted, parent: currentFolder }
         ]
       };
     });
@@ -51,11 +64,22 @@ const SourceTabs = () => {
     reset();
   }
 
-  // New: Add Folder logic
   function handleAddFolder() {
     if (!folderName.trim()) return;
     setFilesPerSource(prev => {
       const sourceFiles = prev[active] ?? [];
+      // Prevent duplicate folder name in same parent
+      if (
+        sourceFiles.some(
+          f =>
+            f.type === "folder" &&
+            f.name === folderName.trim() &&
+            ((currentFolder && f.parent === currentFolder) || (!currentFolder && !f.parent))
+        )
+      ) {
+        toast({ title: "Folder already exists in this directory." });
+        return prev;
+      }
       return {
         ...prev,
         [active]: [
@@ -63,7 +87,8 @@ const SourceTabs = () => {
           {
             name: folderName.trim(),
             type: "folder",
-            encrypted: "", // Folders don't store data
+            encrypted: "",
+            parent: currentFolder,
           }
         ]
       };
@@ -124,7 +149,7 @@ const SourceTabs = () => {
           variant="secondary"
           className="flex items-center gap-2"
           onClick={() => setAddFileOpen(true)}
-          disabled={isEncrypting} // Prevent double "add" while in progress
+          disabled={isEncrypting}
         >
           <FilePlus className="w-4 h-4" /> Add File
         </Button>
@@ -206,12 +231,14 @@ const SourceTabs = () => {
           </span>
         </div>
       </div>
-      {/* Pass current files, plus delete and update handlers */}
+      {/* Pass current files, plus delete and update handlers and navigation path */}
       <EncryptedFileGrid
         sourceIndex={active}
         files={currentFiles}
         onDeleteFile={handleDeleteFile}
         onUpdateFile={handleUpdateFile}
+        currentPath={currentPath}
+        onPathChange={setCurrentPath}
       />
     </div>
   );
