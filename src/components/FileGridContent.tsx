@@ -2,6 +2,7 @@
 import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
+import { toast } from "@/hooks/use-toast";
 
 type FileGridContentProps = {
   folders: any[];
@@ -68,9 +69,17 @@ const FileGridContent = ({
           key={file.name + file.__idx}
           className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
           onClick={() => {
+            // If file is image or text and decrypted, open preview
             if (file.decrypted && (file.type === "image" || file.type === "text")) {
               setMediaViewer({ fileIdx: file.__idx, open: true });
+            } else if ((file.type === "image" || file.type === "text")) {
+              toast({
+                title: file.type === "image" ? "Image not decrypted" : "Text file not decrypted",
+                description: `Please decrypt this ${file.type} first to preview it.`,
+                variant: "destructive"
+              });
             }
+            // For folders, do nothing (the grid treats folders specially)
           }}
         >
           <FileGridItem
@@ -96,3 +105,4 @@ const FileGridContent = ({
 };
 
 export default FileGridContent;
+
