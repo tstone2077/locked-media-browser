@@ -282,9 +282,18 @@ function importVault(
   reader.readAsArrayBuffer(file);
 }
 
+// Extend the source config type for OpenDrive credentials
+type OpenDriveExtra = {
+  username: string;
+  password: string;
+  rootFolder: string;
+};
+
+type SourceConfigWithExtras = SourceConfigType & Partial<OpenDriveExtra>;
+
 const SOURCE_TYPES = [
   { value: "local", label: "Local Storage" },
-  { value: "dataurl", label: "Data URL" },
+  { value: "opendrive", label: "OpenDrive" },
 ];
 
 const SourceConfig = () => {
@@ -292,35 +301,57 @@ const SourceConfig = () => {
   const { filesPerSource, setFilesPerSource } = useFileVault();
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [form, setForm] = useState<SourceConfigType>({
+  // Add OpenDrive fields to form state
+  const [form, setForm] = useState<SourceConfigWithExtras>({
     name: "",
     type: "local",
     encryption: "",
+    username: "",
+    password: "",
+    rootFolder: "",
   });
   const importRef = useRef<HTMLInputElement | null>(null);
 
   function startEdit(idx: number) {
     setEditIdx(idx);
     setShowAdd(true);
-    setForm(sources[idx]);
+    // Handle OpenDrive extended fields if editing
+    setForm({
+      ...sources[idx],
+      // Fallback values: ensure fields exist on form
+      username: (sources[idx] as any).username || "",
+      password: (sources[idx] as any).password || "",
+      rootFolder: (sources[idx] as any).rootFolder || "",
+    });
   }
 
   function handleAddOrSave() {
     if (!form.name || !form.encryption) return;
+    if (form.type === "opendrive" && (!form.username || !form.password || !form.rootFolder)) return;
+    // Prepare clean object
+    const cleanForm: any = { ...form };
+    if (form.type !== "opendrive") {
+      delete cleanForm.username;
+      delete cleanForm.password;
+      delete cleanForm.rootFolder;
+    }
     if (editIdx !== null) {
-      const updatedSources = sources.map((s, i) => (i === editIdx ? form : s));
+      const updatedSources = sources.map((s, i) => (i === editIdx ? cleanForm : s));
       Array(sources.length)
         .fill(0)
         .forEach((_, i) => removeSource(0));
       updatedSources.forEach(s => addSource(s));
     } else {
-      addSource(form);
+      addSource(cleanForm);
     }
     setEditIdx(null);
     setForm({
       name: "",
       type: "local",
       encryption: "",
+      username: "",
+      password: "",
+      rootFolder: "",
     });
     setShowAdd(false);
   }
@@ -334,6 +365,9 @@ const SourceConfig = () => {
         name: "",
         type: "local",
         encryption: "",
+        username: "",
+        password: "",
+        rootFolder: "",
       });
     }
   }
@@ -345,6 +379,9 @@ const SourceConfig = () => {
       name: "",
       type: "local",
       encryption: "",
+      username: "",
+      password: "",
+      rootFolder: "",
     });
   }
 
@@ -377,24 +414,29 @@ const SourceConfig = () => {
                 {s.type === "local" ? (
                   <HardDrive className="text-green-400" size={18} />
                 ) : (
+                  // OpenDrive icon fallback to Image
                   <Image className="text-green-400" size={18} />
                 )}
                 <span className="font-medium text-green-200">{s.name}</span>
-                <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">{s.type === "local" ? "LOCAL" : s.type.toUpperCase()}</span>
+                <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">
+                  {s.type === "local" ? "LOCAL" : s.type === "opendrive" ? "OPENDRIVE" : s.type.toUpperCase()}
+                </span>
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <Lock size={14} className="inline text-green-300/60" />
                 <span>
                   Uses: <span className="opacity-90">{s.encryption}</span>
+                  {s.type === "opendrive" && (s as any).username && (
+                    <> ({(s as any).username})</>
+                  )}
                 </span>
               </div>
             </div>
 
-            {/* Actions - change arrangement here */}
+            {/* Actions */}
             <div className="flex items-center gap-2 ml-6">
               {s.type === "local" ? (
                 <>
-                  {/* Vertical button stack for Export, Import, Edit */}
                   <div className="flex flex-col gap-2">
                     <Button
                       size="sm"
@@ -434,7 +476,6 @@ const SourceConfig = () => {
                       Edit
                     </Button>
                   </div>
-                  {/* Delete button to the right, vertically centered */}
                   <Button
                     size="sm"
                     variant="destructive"
@@ -447,7 +488,7 @@ const SourceConfig = () => {
                   </Button>
                 </>
               ) : (
-                // For non-local data sources, keep layout as before
+                // For OpenDrive source
                 <>
                   <Button
                     size="sm"
@@ -494,7 +535,7 @@ const SourceConfig = () => {
   );
 };
 
-// Factor out dialog so hook call gets latest methods *on each render*
+// DIALOG COMPONENT
 function AddEditSourceDialog({
   form,
   setForm,
@@ -502,18 +543,27 @@ function AddEditSourceDialog({
   handleAddOrSave,
   handleCancel,
 }: {
-  form: SourceConfigType;
-  setForm: React.Dispatch<React.SetStateAction<SourceConfigType>>;
+  form: SourceConfigWithExtras;
+  setForm: React.Dispatch<React.SetStateAction<SourceConfigWithExtras>>;
   editIdx: number | null;
   handleAddOrSave: () => void;
   handleCancel: () => void;
 }) {
-  const { methods } = useEncryptionMethods(); // Reads latest on each render
+  const { methods } = useEncryptionMethods();
+
+  const typeIsOpenDrive = form.type === "opendrive";
 
   return (
     <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
       <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
-        <HardDrive className="mr-2" /> {editIdx !== null ? (form.type === "local" ? "Edit Local Storage Source" : "Edit Data URL Source") : (form.type === "local" ? "New Local Storage Source" : "New Data URL Source")}
+        <HardDrive className="mr-2" />{" "}
+        {editIdx !== null
+          ? form.type === "local"
+            ? "Edit Local Storage Source"
+            : "Edit OpenDrive Source"
+          : form.type === "local"
+            ? "New Local Storage Source"
+            : "New OpenDrive Source"}
       </div>
       {/* ToggleGroup for Source Type */}
       <div className="mb-2">
@@ -525,7 +575,7 @@ function AddEditSourceDialog({
             if (!v) return;
             setForm(f => ({
               ...f,
-              type: v as "local" | "dataurl"
+              type: v as "local" | "opendrive"
             }));
           }}
           className="mb-2"
@@ -553,6 +603,35 @@ function AddEditSourceDialog({
           autoFocus
         />
       </div>
+      {typeIsOpenDrive && (
+        <>
+          <div className="mb-2">
+            <label className="text-sm">OpenDrive Username</label>
+            <input
+              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+              value={form.username || ""}
+              onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+            />
+          </div>
+          <div className="mb-2">
+            <label className="text-sm">OpenDrive Password</label>
+            <input
+              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+              type="password"
+              value={form.password || ""}
+              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+            />
+          </div>
+          <div className="mb-2">
+            <label className="text-sm">Root Folder (e.g. / or /Vault)</label>
+            <input
+              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+              value={form.rootFolder || ""}
+              onChange={e => setForm(f => ({ ...f, rootFolder: e.target.value }))}
+            />
+          </div>
+        </>
+      )}
       <div className="mb-2">
         <label className="text-sm">Encryption Method</label>
         <select
@@ -570,7 +649,12 @@ function AddEditSourceDialog({
       </div>
       <div className="flex justify-end space-x-2 mt-3">
         <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
-        <Button variant="default" className="bg-green-700 hover:bg-green-500" onClick={handleAddOrSave}>
+        <Button
+          variant="default"
+          className="bg-green-700 hover:bg-green-500"
+          onClick={handleAddOrSave}
+          disabled={form.type === "opendrive" && (!form.username || !form.password || !form.rootFolder)}
+        >
           {editIdx !== null ? "Save" : "Add"}
         </Button>
       </div>
