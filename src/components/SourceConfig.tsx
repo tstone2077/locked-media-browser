@@ -332,9 +332,55 @@ const SourceConfig = () => {
     });
   }
 
-  function handleAddOrSave() {
+  // New: Try authenticating to OpenDrive before saving the source
+  async function verifyOpenDriveConnection(form: SourceConfigWithExtras): Promise<null | string> {
+    if (form.type !== "opendrive" || !form.username || !form.password || !form.rootFolder) return null;
+    try {
+      // OpenDrive API: https://dev.opendrive.com/folder/list
+      // We'll check if we can list the rootFolder
+      const resp = await fetch("https://dev.opendrive.com/folder/list.json", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          username: form.username,
+          passwd: form.password,
+          folder_id: form.rootFolder === "/" ? "0" : form.rootFolder // "0" is root in OpenDrive
+        })
+      });
+
+      if (!resp.ok) {
+        return `Could not connect to OpenDrive (${resp.status}): ${resp.statusText}`;
+      }
+      const json = await resp.json();
+      // If API returns error or unauthorized
+      if ((json && json.Error) || resp.status === 401 || resp.status === 403) {
+        return json && json.Error ? json.Error : "Unauthorized OpenDrive credentials.";
+      }
+      // Otherwise, it worked!
+      return null;
+    } catch (err) {
+      return "Network error or unable to connect to OpenDrive.";
+    }
+  }
+
+  async function handleAddOrSave() {
     if (!form.name || !form.encryption) return;
     if (form.type === "opendrive" && (!form.username || !form.password || !form.rootFolder)) return;
+
+    // OpenDrive: validate before saving!
+    if (form.type === "opendrive") {
+      const errorMsg = await verifyOpenDriveConnection(form);
+      if (errorMsg) {
+        toast({
+          title: "OpenDrive Connection Failed",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     // Prepare clean object
     const cleanForm: SourceConfigWithExtras = { ...form };
     if (form.type !== "opendrive") {
@@ -647,7 +693,7 @@ function AddEditSourceDialog({
             />
           </div>
           <div className="mb-2">
-            <label className="text-sm">Root Folder (e.g. / or /Vault)</label>
+            <label className="text-sm">Root Folder (e.g. / or /Vault, or a Folder ID)</label>
             <input
               className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
               value={form.rootFolder || ""}

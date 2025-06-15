@@ -20,27 +20,68 @@ type EncryptedFileGridProps = {
 
 const ENCRYPT_PASS = "vault-password";
 
-// MOCKED: Fetch folders from OpenDrive API (replace this with real API if available)
-async function fetchOpenDriveFolders(source: any, path: string[] = []): Promise<FileEntry[]> {
-  // Simulate API directory listing
-  await new Promise(res => setTimeout(res, 500)); // Simulate delay
-  // Example structure
-  if (path.length === 0) {
-    return [
-      { name: "Photos", type: "folder", encrypted: "", parent: undefined },
-      { name: "Documents", type: "folder", encrypted: "", parent: undefined }
-    ];
+// Real OpenDrive directory fetcher
+async function fetchOpenDriveFolders(
+  source: any,
+  path: string[] = []
+): Promise<FileEntry[]> {
+  // Only run if everything required is present
+  if (!source || !source.username || !source.password || !source.rootFolder) return [];
+  // Find deepest folder: traverse down tree using folder names if possible, else just root
+  // We'll use folder_id if we have it, otherwise default to "0"
+  let folderId = source.rootFolder;
+  // If user enters "/", treat as root folder
+  if (folderId === "/") folderId = "0";
+  // Traverse path: on each, call OpenDrive to lookup subfolder by name
+  let currentFolderId = folderId;
+  try {
+    // If a subfolder path exists, try to step through and find ID for target folder
+    if (path.length > 0) {
+      for (const pname of path) {
+        // List this currentFolderId, find next subfolder by name
+        const resp = await fetch("https://dev.opendrive.com/folder/list.json", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: source.username,
+            passwd: source.password,
+            folder_id: currentFolderId,
+          }),
+        });
+        if (!resp.ok) throw new Error("Failed to list folders (step)", { cause: resp.statusText });
+        const json = await resp.json();
+        if (!json || !json.Folders) return [];
+        const found = json.Folders.find((f: any) => f.Name === pname);
+        if (!found) return [];
+        currentFolderId = found.FolderID;
+      }
+    }
+    // Now list all folders/files at this ID, only return folders
+    const resp = await fetch("https://dev.opendrive.com/folder/list.json", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: source.username,
+        passwd: source.password,
+        folder_id: currentFolderId,
+      }),
+    });
+    if (!resp.ok) throw new Error("Failed to list OpenDrive directory.");
+    const json = await resp.json();
+    if (!json || !json.Folders) return [];
+
+    // Return all folders, standard FileEntry format
+    return json.Folders.map((f: any) => ({
+      name: f.Name,
+      type: "folder",
+      encrypted: "",
+      parent: path.length > 0 ? path[path.length - 1] : undefined,
+    }));
+  } catch (err) {
+    // Just ignore and return empty if error
+    console.error("[OpenDrive] Failed to fetch folder(s):", err);
+    return [];
   }
-  if (path[path.length - 1] === "Photos")
-    return [
-      { name: "Family", type: "folder", encrypted: "", parent: "Photos" },
-      { name: "Vacation", type: "folder", encrypted: "", parent: "Photos" }
-    ];
-  if (path[path.length - 1] === "Documents")
-    return [
-      { name: "Work", type: "folder", encrypted: "", parent: "Documents" }
-    ];
-  return [];
 }
 
 const EncryptedFileGrid = ({
@@ -61,29 +102,28 @@ const EncryptedFileGrid = ({
   const { setFilesPerSource, filesPerSource } = useFileVault();
   const currentFolder = currentPath.length ? currentPath[currentPath.length - 1] : undefined;
 
-  // NEW: Detect config of this source to check for OpenDrive
+  // Detect config of this source to check for OpenDrive
   const sourceConfigs = JSON.parse(window.sessionStorage.getItem("sources") || "[]");
   const thisSource = sourceConfigs[sourceIndex];
 
-  // Update folders from OpenDrive when source is of type opendrive.
+  // Fetch actual OpenDrive folders if configured
   useEffect(() => {
     let mounted = true;
     async function loadFoldersIfOpenDrive() {
       if (!thisSource || thisSource.type !== "opendrive") return;
-      // Fetch folders from OpenDrive API (replace this with real API)
+      // Use correct OpenDrive fetcher
       const foundFolders = await fetchOpenDriveFolders(thisSource, currentPath);
       setFilesPerSource(prev => {
         const prevArr = prev[sourceIndex] ?? [];
         // Remove all folders at this level for the opendrive source
         const nonFolder = prevArr.filter(f => f.type !== "folder" || (f.parent && f.parent !== currentFolder));
-        // Only type 'folder' is added, and type matches FileEntry
-        const newFolders: FileEntry[] = foundFolders.map(({ name, parent }) => ({
-          name,
+        // Only add folders not already present
+        const newFolders: FileEntry[] = foundFolders.map(f => ({
+          name: f.name,
           type: "folder",
           encrypted: "",
-          parent: parent ?? (currentPath.length > 0 ? currentFolder : undefined)
+          parent: f.parent,
         }));
-        // Only add folders not already present
         const updated = [
           ...nonFolder,
           ...newFolders.filter(nf => !prevArr.some(f => f.type === "folder" && f.name === nf.name && f.parent === nf.parent)),
