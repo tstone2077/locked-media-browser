@@ -1,4 +1,3 @@
-
 import { useSources } from "@/lib/sources";
 import EncryptedFileGrid from "./EncryptedFileGrid";
 import { useState, useRef } from "react";
@@ -82,37 +81,68 @@ const SourceTabs = () => {
     e.preventDefault();
     setIsDragOver(false);
     dragTargetCount.current = 0;
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    const reader = new FileReader();
 
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        setAddFilePrefill(result); // set to prefill modal
-        setAddFileOpen(true);
+    const files = e.dataTransfer.files;
+    const droppedText = e.dataTransfer.getData("text/plain")?.trim();
+
+    // Helper function to check if text is a valid dataUrl
+    const isDataUrl = (text: string) =>
+      typeof text === "string" &&
+      (text.startsWith("data:image/") || text.startsWith("data:text/"));
+
+    // 1. Try file drop (image/text only)
+    if (files && files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result === "string") {
+          setAddFilePrefill(result); // set to prefill modal
+          setAddFileOpen(true);
+        } else {
+          toast({
+            title: "Could not read the dropped file.",
+            description: "FileReader result was not a string.",
+            variant: "destructive"
+          });
+        }
+      };
+
+      // Only support image and text files for now
+      if (isFileImage(file) || isFileText(file)) {
+        reader.readAsDataURL(file);
       } else {
         toast({
-          title: "Could not read the dropped file.",
-          description: "FileReader result was not a string.",
+          title: "Unsupported file type",
+          description: "Only image and text files are supported for now.",
           variant: "destructive"
         });
       }
-    };
-
-    // Only support image and text files for now, as per existing AddFileModal UI
-    if (isFileImage(file)) {
-      reader.readAsDataURL(file);
-    } else if (isFileText(file)) {
-      reader.readAsDataURL(file); // We'll base64 encode text, consistent with modal
-    } else {
-      toast({
-        title: "Unsupported file type",
-        description: "Only image and text files are supported for now.",
-        variant: "destructive"
-      });
+      return; // nothing else to check
     }
+
+    // 2. If not a file, try dropped text (data URL as string)
+    if (droppedText) {
+      if (isDataUrl(droppedText)) {
+        setAddFilePrefill(droppedText);
+        setAddFileOpen(true);
+      } else {
+        toast({
+          title: "Dropped text is not a valid data URL.",
+          description: "Please drop a valid data URL (e.g. data:image/png;base64,...)",
+          variant: "destructive"
+        });
+      }
+      return; // handled
+    }
+
+    // 3. If neither, show error
+    toast({
+      title: "Unsupported drop",
+      description: "Please drop an image/text file or a valid data URL.",
+      variant: "destructive"
+    });
   }
 
   async function handleAddFile(dataUrl: string) {
@@ -339,4 +369,3 @@ const SourceTabs = () => {
 };
 
 export default SourceTabs;
-
