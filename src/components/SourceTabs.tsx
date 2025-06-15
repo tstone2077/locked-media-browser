@@ -77,7 +77,7 @@ const SourceTabs = () => {
       dragTargetCount.current = 0;
     }
   }
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragOver(false);
     dragTargetCount.current = 0;
@@ -95,11 +95,10 @@ const SourceTabs = () => {
       const file = files[0];
       const reader = new FileReader();
 
-      reader.onload = () => {
+      reader.onload = async () => {
         const result = reader.result;
         if (typeof result === "string") {
-          setAddFilePrefill(result); // set to prefill modal
-          setAddFileOpen(true);
+          await handleAddFile(result); // Just add the file directly
         } else {
           toast({
             title: "Could not read the dropped file.",
@@ -125,8 +124,7 @@ const SourceTabs = () => {
     // 2. If not a file, try dropped text (data URL as string)
     if (droppedText) {
       if (isDataUrl(droppedText)) {
-        setAddFilePrefill(droppedText);
-        setAddFileOpen(true);
+        await handleAddFile(droppedText);
       } else {
         toast({
           title: "Dropped text is not a valid data URL.",
