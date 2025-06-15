@@ -3,6 +3,8 @@ import EncryptedFileGrid from "./EncryptedFileGrid";
 import { useState } from "react";
 import { Image, FolderPlus, FilePlus } from "lucide-react";
 import AddFileModal from "./AddFileModal";
+import AddFolderModal from "./AddFolderModal";
+import EncryptionProgressBar from "./EncryptionProgressBar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAsyncEncryption } from "@/hooks/useAsyncEncryption";
@@ -164,50 +166,25 @@ const SourceTabs = () => {
       </div>
 
       {/* Add Folder Modal */}
-      {addFolderOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-[#10151e] p-6 rounded-lg shadow-lg w-80 flex flex-col animate-scale-in">
-            <h2 className="text-lg font-semibold mb-3 text-cyan-300 flex items-center gap-2">
-              <FolderPlus className="w-5 h-5" /> Add Folder
-            </h2>
-            <input
-              type="text"
-              placeholder="Folder name"
-              className="mb-4 px-3 py-2 rounded bg-[#191f29] border border-cyan-700 text-white"
-              value={folderName}
-              onChange={e => setFolderName(e.target.value)}
-              autoFocus
-              maxLength={60}
-            />
-            <div className="flex gap-2 justify-end">
-              <Button variant="ghost" onClick={() => { setAddFolderOpen(false); setFolderName(""); }}>
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                className="bg-cyan-700 hover:bg-cyan-500"
-                onClick={handleAddFolder}
-                disabled={!folderName.trim()}
-              >
-                Add
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddFolderModal
+        open={addFolderOpen}
+        folderName={folderName}
+        setFolderName={setFolderName}
+        onAddFolder={handleAddFolder}
+        onClose={() => {
+          setAddFolderOpen(false);
+          setFolderName("");
+        }}
+        canSubmit={!!folderName.trim()}
+      />
 
       {/* Progress bar overlay */}
-      {isEncrypting && (
-        <div className="w-full my-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-cyan-300">
-              Encrypting {encryptionFileName ? <b>{encryptionFileName}</b> : ""}...
-            </span>
-            <span className="text-xs">{progress}%</span>
-          </div>
-          <Progress value={progress} />
-        </div>
-      )}
+      <EncryptionProgressBar
+        isEncrypting={isEncrypting}
+        fileName={encryptionFileName}
+        progress={progress}
+      />
+
       <div className="flex gap-2 mb-10 border-b border-cyan-900/50">
         {sources.map((s, idx) => (
           <button
