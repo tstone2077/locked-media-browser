@@ -107,6 +107,30 @@ const EncryptedFileGrid = ({
     toast({ title: `Moved ${selected.length} item(s) to ${targetFolder}.` });
   }
 
+  // Add: Select All
+  const isAllSelected = selected.length > 0 && selected.length === files.length;
+  function handleSelectAllToggle() {
+    if (isAllSelected) {
+      setSelected([]);
+    } else {
+      setSelected(files.map((_, i) => i));
+    }
+  }
+
+  // Bulk decryption
+  async function handleDecryptSelected() {
+    for (const idx of selected) {
+      // Only try to decrypt files that aren't decrypted yet and aren't folders
+      const file = files[idx];
+      if (file.type !== "folder" && !file.decrypted && file.encrypted) {
+        await handleDecrypt(idx);
+      }
+    }
+    setSelected([]);
+    toast({ title: "Decryption done for selected" });
+  }
+
+  // Bulk delete (extracted from previous button, not inline anymore)
   function handleDeleteSelected() {
     setFilesPerSource(prev => {
       const old = prev[sourceIndex] ?? [];
@@ -260,12 +284,31 @@ const EncryptedFileGrid = ({
         </Breadcrumb>
       </div>
 
-      <div className="mb-2 flex gap-2">
+      {/* SELECT ALL + Bulk Actions */}
+      <div className="mb-2 flex gap-2 items-center">
+        <input
+          type="checkbox"
+          checked={isAllSelected}
+          onChange={handleSelectAllToggle}
+          className="accent-cyan-400 w-4 h-4 rounded border-cyan-700 focus:ring-cyan-500 cursor-pointer"
+          aria-label="Select all files"
+        />
+        <span className="text-sm text-cyan-200 select-none mr-3">Select All</span>
         {selected.length > 0 && (
           <>
-            <Button variant="destructive" onClick={handleDeleteSelected} className="flex items-center gap-1">
-              <Trash2 className="w-4 h-4" /> {/* now an icon-only button */}
-              {/* <span>Delete Selected</span> */}
+            <Button
+              variant="default"
+              onClick={handleDecryptSelected}
+              className="flex items-center gap-2"
+            >
+              Decrypt Selected
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-2"
+            >
+              Delete Selected
             </Button>
             {allFolders.length > 0 && (
               <div className="relative">
@@ -325,7 +368,10 @@ const EncryptedFileGrid = ({
             key={file.name + file.__idx}
             className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
             onClick={() => {
-              setMediaViewer({ fileIdx: file.__idx, open: true });
+              // Only show media viewer if file is decrypted
+              if (file.decrypted && (file.type === "image" || file.type === "text")) {
+                setMediaViewer({ fileIdx: file.__idx, open: true });
+              }
             }}
           >
             <FileGridItem
@@ -347,30 +393,35 @@ const EncryptedFileGrid = ({
           </div>
         )}
       </div>
-      {/* Media Viewer (outside grid): shows when open */}
-      {canShowMediaViewer ? (
+      {/* Media Viewer (outside grid): only shows if file is decrypted and supported */}
+      {canShowMediaViewer && selectedMediaFile.decrypted ? (
         <MediaViewer
           open={mediaViewer.open}
           setOpen={(open: boolean) => setMediaViewer(m => ({ ...m, open }))}
           file={{
-            // Only provide type: "image"|"text" and related props
             name: selectedMediaFile.name,
             type: selectedMediaFile.type as "image" | "text",
-            decrypted:
-              selectedMediaFile.decrypted ||
+            decrypted: selectedMediaFile.decrypted ||
               (selectedMediaFile.type === "image" ? getThumbnail(selectedMediaFile) : ""),
             liked: selectedMediaFile.liked,
           }}
           onPrev={() => {
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-            if (currentIdx > 0) {
-              setMediaViewer({ fileIdx: filesInCurrent[currentIdx - 1].__idx, open: true });
+            // Only navigate to previous decrypted file
+            for (let i = currentIdx - 1; i >= 0; i--) {
+              if (filesInCurrent[i].decrypted && (filesInCurrent[i].type === "image" || filesInCurrent[i].type === "text")) {
+                setMediaViewer({ fileIdx: filesInCurrent[i].__idx, open: true });
+                break;
+              }
             }
           }}
           onNext={() => {
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-            if (currentIdx < filesInCurrent.length - 1) {
-              setMediaViewer({ fileIdx: filesInCurrent[currentIdx + 1].__idx, open: true });
+            for (let i = currentIdx + 1; i < filesInCurrent.length; i++) {
+              if (filesInCurrent[i].decrypted && (filesInCurrent[i].type === "image" || filesInCurrent[i].type === "text")) {
+                setMediaViewer({ fileIdx: filesInCurrent[i].__idx, open: true });
+                break;
+              }
             }
           }}
         />
