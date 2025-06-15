@@ -1,11 +1,13 @@
+
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
 export type FileEntry = {
   name: string;
-  type: "image" | "text" | "folder"; // Added "folder"
-  encrypted: string;
-  decrypted?: string;
+  type: "image" | "text" | "folder";
+  encrypted: string; // Ciphertext as base64
+  decrypted?: string; // Decrypted text/dataurl
   liked?: boolean;
+  parent?: string; // The name of parent folder, or undefined/root
 };
 
 type FileVaultContextType = {

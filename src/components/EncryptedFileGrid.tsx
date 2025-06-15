@@ -1,18 +1,12 @@
 
-import { useSources } from "@/lib/sources";
-import { useEncryptionMethods } from "@/lib/encryption";
-import { useState } from "react";
-import { Lock, Image as ImageIcon } from "lucide-react";
-import MediaViewer from "./MediaViewer";
+// This new implementation supports drag-and-drop folder move and checkboxes for selection
+import React, { useState } from "react";
+import { FileEntry } from "@/context/FileVaultContext";
+import { FileGridItem } from "./FileGridItem";
 import { toast } from "@/hooks/use-toast";
-
-type FileEntry = {
-  name: string;
-  type: "image" | "text";
-  encrypted: string; // Simulate encrypted data, in real case would be bytes
-  decrypted?: string; // Data URL or text, for now
-  liked?: boolean;
-};
+import { useCrypto } from "@/hooks/useCrypto";
+import { Button } from "@/components/ui/button";
+import { useFileVault } from "@/context/FileVaultContext";
 
 type EncryptedFileGridProps = {
   sourceIndex: number;
@@ -21,131 +15,212 @@ type EncryptedFileGridProps = {
   onUpdateFile: (idx: number, updated: FileEntry) => void;
 };
 
+const ENCRYPT_PASS = "vault-password"; // TODO: make dynamic
+
+const findFolderNames = (files: FileEntry[]) =>
+  files.filter(f => f.type === "folder").map(f => f.name);
+
 const EncryptedFileGrid = ({
   sourceIndex,
   files,
   onDeleteFile,
   onUpdateFile,
 }: EncryptedFileGridProps) => {
-  const { sources } = useSources();
-  const { methods } = useEncryptionMethods();
-  const [openViewer, setOpenViewer] = useState<null | number>(null);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const { encryptData, decryptData } = useCrypto(ENCRYPT_PASS);
+  const { setFilesPerSource, filesPerSource } = useFileVault();
 
-  const source = sources[sourceIndex];
-  if (!source) return null;
-  const encryption = methods.find(m => m.name === source.encryption);
+  // FILTER root
+  const visibleFiles = files.filter(f => !f.parent);
 
-  function handleDecrypt(idx: number) {
+  function handleCheck(idx: number, checked: boolean) {
+    setSelected(s => checked ? [...s, idx] : s.filter(i => i !== idx));
+  }
+
+  function handleMove(targetFolder: string) {
+    setFilesPerSource(prev => {
+      const old = prev[sourceIndex] ?? [];
+      return {
+        ...prev,
+        [sourceIndex]: old.map((entry, idx) =>
+          selected.includes(idx) && entry.type !== "folder"
+            ? { ...entry, parent: targetFolder }
+            : entry
+        ),
+      };
+    });
+    setSelected([]);
+    toast({ title: `Moved ${selected.length} item(s) to ${targetFolder}.` });
+  }
+
+  function handleDeleteSelected() {
+    setFilesPerSource(prev => {
+      const old = prev[sourceIndex] ?? [];
+      return {
+        ...prev,
+        [sourceIndex]: old.filter((_, idx) => !selected.includes(idx)),
+      };
+    });
+    setSelected([]);
+    toast({ title: "Deleted selected items" });
+  }
+
+  async function handleDecrypt(idx: number) {
     const file = files[idx];
-    if (!encryption) {
-      toast({ title: "Encryption method not found." });
+    if (!file.encrypted || !file.encrypted.includes(":")) {
+      toast({ title: "Invalid encrypted data." });
       return;
     }
-    // Simulate decryption
-    const decryptedData = atob(file.encrypted);
-    const updated = { ...file, decrypted: decryptedData };
-    onUpdateFile(idx, updated);
-    toast({ title: "Decryption successful" });
+    try {
+      const decryptedBuf = await decryptData(file.encrypted);
+      // handle text/image differently
+      let content: string = "";
+      if (file.type === "text") {
+        content = new TextDecoder().decode(decryptedBuf);
+      } else if (file.type === "image") {
+        // Try create data url (assuming original was a data url string, base64 encoded)
+        const blob = new Blob([decryptedBuf]);
+        content = await new Promise<string>(resolve => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      }
+      onUpdateFile(idx, { ...file, decrypted: content });
+      toast({ title: "Decryption successful" });
+    } catch (e: any) {
+      toast({ title: "Decryption failed", description: e.message });
+    }
   }
 
-  function handleLock(idx: number) {
+  async function handleEncrypt(idx: number) {
     const file = files[idx];
-    const updated = { ...file };
-    delete updated.decrypted;
-    onUpdateFile(idx, updated);
-    toast({ title: "Decrypted data removed" });
+    try {
+      let encrypted: string = "";
+      if (file.type === "text" && file.decrypted) {
+        encrypted = await encryptData(file.decrypted);
+      } else if (file.type === "image" && file.decrypted) {
+        // Convert dataURL to array buffer
+        const response = await fetch(file.decrypted);
+        const buf = await response.arrayBuffer();
+        encrypted = await encryptData(buf);
+      }
+      onUpdateFile(idx, { ...file, decrypted: undefined, encrypted });
+      toast({ title: "Encryption successful" });
+    } catch (e: any) {
+      toast({ title: "Encryption failed", description: e.message });
+    }
   }
 
-  function handleLike(idx: number) {
-    const file = files[idx];
-    onUpdateFile(idx, { ...file, liked: !file.liked });
+  // Drag and drop
+  function onDragStart(e: React.DragEvent, idx: number) {
+    setDraggedIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
   }
+  function onDropOnFolder(folderName: string) {
+    if (draggedIdx == null) return;
+    setFilesPerSource(prev => {
+      const old = prev[sourceIndex] ?? [];
+      return {
+        ...prev,
+        [sourceIndex]: old.map((file, idx) =>
+          idx === draggedIdx && file.type !== "folder"
+            ? { ...file, parent: folderName }
+            : file
+        ),
+      };
+    });
+    setDraggedIdx(null);
+    toast({ title: "Item moved" });
+  }
+  function onDragEnd() {
+    setDraggedIdx(null);
+  }
+
+  // Move menu
+  const folderNames = findFolderNames(files);
 
   return (
-    <div className="grid gap-8 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 animate-fade-in">
-      {files.map((file, idx) => (
-        <div
-          key={file.name + idx}
-          className="flex flex-col items-center justify-center p-6 rounded-xl bg-[#161e2f] shadow-lg border border-cyan-900/40 relative group"
-        >
-          {/* Delete button (top right corner) */}
-          <button
-            className="absolute top-2 right-2 z-10 text-sm text-red-400 bg-cyan-950/60 px-2 py-1 rounded hover:bg-red-900/70 hover:text-white font-semibold transition"
-            onClick={() => onDeleteFile(idx)}
-            title="Delete file"
-          >
-            ×
-            <span className="sr-only">Delete</span>
-          </button>
-          {/* Lock or Thumbnail */}
-          {!file.decrypted ? (
-            <button
-              className="h-28 w-28 rounded bg-gradient-to-tr from-cyan-800/60 to-cyan-900/60 flex items-center justify-center border-2 border-cyan-700 hover:scale-105 transition-hover ring-2 ring-cyan-700/40 mb-3"
-              onClick={() => handleDecrypt(idx)}
-              title="Unlock & Decrypt"
-            >
-              <Lock className="w-10 h-10 text-cyan-400 animate-pulse" />
-            </button>
-          ) : (
-            <button
-              className="group relative w-28 h-28 overflow-hidden rounded bg-gray-700 mb-3"
-              onClick={() => setOpenViewer(idx)}
-              title={file.name}
-            >
-              {file.type === "image" ? (
-                <img
-                  src={file.decrypted.startsWith("data:image/") ? file.decrypted : "/placeholder.svg"}
-                  alt={file.name}
-                  className="w-full h-full object-cover animate-fade-in"
-                  style={{
-                    background: "rgba(20,30,40,0.4)",
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-xl text-cyan-300 bg-[#182232]">
-                  <ImageIcon />
-                </div>
-              )}
-              <span className="absolute right-2 bottom-2 bg-cyan-900/60 px-2 py-0.5 rounded text-xs">{file.type}</span>
-            </button>
-          )}
-
-          {/* Filename */}
-          <div className="text-lg font-semibold mt-1 text-cyan-200">{file.name}</div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-4 mt-3">
-            {file.decrypted ? (
-              <button
-                onClick={() => handleLock(idx)}
-                className="px-3 py-1 rounded bg-cyan-900/40 hover:bg-cyan-700/70 text-cyan-300 text-xs hover:scale-105 shadow transition"
-                title="Lock & Delete Decrypted Data"
-              >
-                Lock
-              </button>
-            ) : (
-              <span className="text-xs text-gray-500 opacity-70">Locked</span>
+    <div>
+      <div className="mb-2 flex gap-2">
+        {selected.length > 0 && (
+          <>
+            <Button variant="destructive" onClick={handleDeleteSelected}>
+              Delete Selected
+            </Button>
+            {folderNames.length > 0 && (
+              <div className="relative">
+                <select
+                  className="bg-cyan-950 border border-cyan-700 rounded px-2 py-1 text-cyan-200"
+                  defaultValue=""
+                  onChange={e => { if (e.target.value) handleMove(e.target.value); }}
+                >
+                  <option value="" disabled>Move selected to...</option>
+                  {folderNames.map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
             )}
-            <button
-              onClick={() => handleLike(idx)}
-              className={`px-3 py-1 rounded ${file.liked ? "bg-pink-600/80 text-white" : "bg-pink-900/40 text-pink-200"} text-xs hover:scale-110 shadow transition`}
-              title={file.liked ? "Unlike" : "Like"}
-            >
-              ♥
-            </button>
+          </>
+        )}
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 animate-fade-in">
+        {visibleFiles.map((file, idx) => (
+          <FileGridItem
+            key={file.name + idx}
+            file={file}
+            checked={selected.includes(idx)}
+            onCheck={checked => handleCheck(idx, checked)}
+            onMove={() => {
+              if (!folderNames.length) return;
+              const target = prompt("Move to which folder?", folderNames[0]);
+              if (target) handleMove(target);
+            }}
+            onDelete={() => onDeleteFile(idx)}
+            onDecrypt={() => handleDecrypt(idx)}
+            onEncrypt={() => handleEncrypt(idx)}
+            onDragStart={e => onDragStart(e, idx)}
+            draggable={file.type !== "folder"}
+          />
+        ))}
+        {/* Show folder contents inline (1 level only for now) */}
+        {folderNames.map(folderName => (
+          <div
+            key={folderName}
+            className="bg-cyan-950 border border-cyan-800 rounded-lg p-3 col-span-1 relative"
+            onDrop={e => { e.preventDefault(); onDropOnFolder(folderName); }}
+            onDragOver={e => e.preventDefault()}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span>
+                <span className="inline-block bg-cyan-700/30 rounded-full px-2 py-1 text-cyan-300">{folderName}</span>
+              </span>
+            </div>
+            <div className="grid gap-2">
+              {files
+                .map((f, fileIdx) => ({ ...f, __idx: fileIdx }))
+                .filter(f => f.type !== "folder" && f.parent === folderName)
+                .map(f => (
+                  <FileGridItem
+                    key={f.name}
+                    file={f}
+                    checked={selected.includes((f as any).__idx)}
+                    onCheck={checked => handleCheck((f as any).__idx, checked)}
+                    onMove={() => { /* Individual move handled at parent*/ }}
+                    onDelete={() => onDeleteFile((f as any).__idx)}
+                    onDecrypt={() => handleDecrypt((f as any).__idx)}
+                    onEncrypt={() => handleEncrypt((f as any).__idx)}
+                    onDragStart={e => onDragStart(e, (f as any).__idx)}
+                    draggable
+                  />
+                ))}
+            </div>
           </div>
-          {/* Open viewer modal */}
-          {openViewer === idx && file.decrypted && (
-            <MediaViewer
-              open={Boolean(openViewer !== null)}
-              setOpen={open => setOpenViewer(open ? idx : null)}
-              file={file}
-              onPrev={() => setOpenViewer(idx > 0 ? idx - 1 : files.length - 1)}
-              onNext={() => setOpenViewer(idx < files.length - 1 ? idx + 1 : 0)}
-            />
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };
