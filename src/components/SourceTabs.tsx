@@ -89,9 +89,13 @@ const SourceTabs = () => {
     setIsDragOver(false);
     dragTargetCount.current = 0;
 
-    // If dragging from vault itself (using custom MIME), skip handling here!
-    if (isInternalVaultDrag(e)) {
-      // Do not treat as a new file drop
+    // --- FIX: do NOT treat drags from within the vault as file adds ---
+    // Check for vault internal drag: use both types and getData to be robust
+    const isVaultInternal =
+      e.dataTransfer.types?.includes("application/x-vault-internal") ||
+      !!e.dataTransfer.getData("application/x-vault-internal");
+    if (isVaultInternal) {
+      // Just ignore, let the vault logic handle folder moves, etc.
       return;
     }
 
