@@ -1,7 +1,10 @@
+
 import { useState, useRef } from "react";
 import { Image, Lock, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSources, SourceConfig as SourceConfigType } from "@/lib/sources";
+-import { useSources, SourceConfig as SourceConfigType } from "@/lib/sources";
++import { useSources } from "@/lib/sources";
++import { SourceConfig } from "@/lib/sources";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
 import JSZip from "jszip";

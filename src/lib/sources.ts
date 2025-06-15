@@ -1,15 +1,6 @@
 
 import { useSessionStorage } from "./session-storage";
-
-export type SourceConfig = {
-  name: string;
-  type: "local" | "opendrive";
-  encryption: string; // Encryption method name
-  // OpenDrive fields are optional, only present if type is "opendrive"
-  username?: string;
-  password?: string;
-  rootFolder?: string;
-};
+import { SourceConfig } from "./sources";
 
 const SOURCES_KEY = "sources";
 

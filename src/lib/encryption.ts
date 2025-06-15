@@ -1,12 +1,6 @@
 
 import { useSessionStorage } from "./session-storage";
-
-export type EncryptionMethodConfig = {
-  name: string;
-  type: "gpg" | "aes-256";
-  privateKey?: string; // for gpg
-  password: string; // for gpg or AES-256
-};
+import { EncryptionMethodConfig } from "./encryption-methods";
 
 const ENCRYPTION_KEY = "encryption-methods";
 
@@ -20,7 +14,6 @@ export function useEncryptionMethods() {
     setMethods(methods.filter((_, idx) => idx !== index));
   }
 
-  // methods as pseudo-pluggable for abstraction
   return {
     methods,
     addMethod,

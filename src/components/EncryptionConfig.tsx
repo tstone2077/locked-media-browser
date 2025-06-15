@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Lock, Edit, Trash2, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEncryptionMethods, EncryptionMethodConfig } from "@/lib/encryption";
+import { useEncryptionMethods } from "@/lib/encryption";
+import { EncryptionMethodConfig, ENCRYPTION_METHODS } from "@/lib/encryption-methods";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
