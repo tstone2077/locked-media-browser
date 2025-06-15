@@ -2,18 +2,18 @@ import { useState } from "react";
 import { Lock, Edit, Trash2, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEncryptionMethods } from "@/lib/encryption";
-import { EncryptionMethodConfig, ENCRYPTION_METHODS } from "@/lib/encryption-methods";
+import { GPGConfig, AES256Config, AgeConfig, EncryptionMethodConfig, ENCRYPTION_METHODS } from "@/lib/encryption-methods";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 // Utility type guards
-function isGPG(config: EncryptionMethodConfig): config is { type: "gpg"; privateKey: string; password: string; } {
+function isGPG(config: EncryptionMethodConfig): config is GPGConfig {
   return config.type === "gpg";
 }
-function isAES256(config: EncryptionMethodConfig): config is { type: "aes-256"; password: string; } {
+function isAES256(config: EncryptionMethodConfig): config is AES256Config {
   return config.type === "aes-256";
 }
-function isAge(config: EncryptionMethodConfig): config is { type: "age"; password: string; } {
+function isAge(config: EncryptionMethodConfig): config is AgeConfig {
   return config.type === "age";
 }
 
@@ -23,18 +23,37 @@ const ENCRYPTION_TYPES = [
   { value: "age", label: "age" }, // add age method here
 ];
 
+const getDefaultConfig = (type: "gpg" | "aes-256" | "age"): EncryptionMethodConfig => {
+  if (type === "gpg") {
+    return {
+      name: "",
+      type: "gpg",
+      privateKey: "",
+      password: "",
+    };
+  }
+  if (type === "aes-256") {
+    return {
+      name: "",
+      type: "aes-256",
+      password: "",
+    };
+  }
+  // age
+  return {
+    name: "",
+    type: "age",
+    password: "",
+  };
+};
+
 const EncryptionConfig = () => {
   const { methods, addMethod, removeMethod } = useEncryptionMethods();
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
 
-  // Default form, always have 'privateKey' to avoid TS errors; use type guards to show/hide
-  const [form, setForm] = useState<EncryptionMethodConfig>({
-    name: "",
-    type: "gpg",
-    privateKey: "",
-    password: "",
-  } as EncryptionMethodConfig);
+  // Default form, always have all required fields present; type guards to show/hide
+  const [form, setForm] = useState<EncryptionMethodConfig>(getDefaultConfig("gpg"));
 
   function handleEdit(idx: number) {
     setEditIdx(idx);
@@ -43,7 +62,6 @@ const EncryptionConfig = () => {
   }
 
   function handleAddOrSave() {
-    // Validation for each type
     if (!form.name || !form.password) return;
     if (isGPG(form) && !form.privateKey) return;
     if (editIdx !== null) {
@@ -55,12 +73,7 @@ const EncryptionConfig = () => {
     } else {
       addMethod(form);
     }
-    setForm({
-      name: "",
-      type: "gpg",
-      privateKey: "",
-      password: "",
-    } as EncryptionMethodConfig);
+    setForm(getDefaultConfig("gpg"));
     setEditIdx(null);
     setShowAdd(false);
   }
@@ -70,24 +83,14 @@ const EncryptionConfig = () => {
     if (editIdx === idx) {
       setEditIdx(null);
       setShowAdd(false);
-      setForm({
-        name: "",
-        type: "gpg",
-        privateKey: "",
-        password: "",
-      } as EncryptionMethodConfig);
+      setForm(getDefaultConfig("gpg"));
     }
   }
 
   function handleCancel() {
     setEditIdx(null);
     setShowAdd(false);
-    setForm({
-      name: "",
-      type: "gpg",
-      privateKey: "",
-      password: "",
-    } as EncryptionMethodConfig);
+    setForm(getDefaultConfig("gpg"));
   }
 
   return (
@@ -157,7 +160,6 @@ const EncryptionConfig = () => {
           <div className="mb-3 font-semibold text-lg text-cyan-400 flex items-center">
             <Lock className="mr-2" /> {editIdx !== null ? "Edit Encryption Method" : "New Encryption Method"}
           </div>
-
           {/* ToggleGroup for encryption type */}
           <div className="mb-2">
             <label className="text-sm block mb-1">Type</label>
@@ -167,28 +169,30 @@ const EncryptionConfig = () => {
               onValueChange={v => {
                 if (!v) return;
                 setForm(f => {
+                  // Always base new value off of defaults for this type, keeping name and password if possible
                   if (v === "gpg") {
                     return {
-                      ...f,
-                      type: v,
-                      privateKey: typeof f.privateKey === "string" ? f.privateKey : "",
+                      name: f.name ?? "",
+                      type: "gpg",
+                      privateKey: isGPG(f) ? f.privateKey : "",
+                      password: f.password ?? "",
                     };
                   }
                   if (v === "aes-256") {
                     return {
-                      ...f,
-                      type: v,
+                      name: f.name ?? "",
+                      type: "aes-256",
                       password: f.password ?? "",
                     };
                   }
                   if (v === "age") {
                     return {
-                      ...f,
-                      type: v,
+                      name: f.name ?? "",
+                      type: "age",
                       password: f.password ?? "",
                     };
                   }
-                  return { ...f, type: v };
+                  return getDefaultConfig("gpg");
                 });
               }}
               className="mb-2"
@@ -207,7 +211,6 @@ const EncryptionConfig = () => {
               ))}
             </ToggleGroup>
           </div>
-
           <div className="mb-2">
             <label className="text-sm">Name</label>
             <input
@@ -267,3 +270,5 @@ const EncryptionConfig = () => {
 };
 
 export default EncryptionConfig;
+
+// NOTE: This file is getting quite long (270+ lines). Consider asking the assistant to refactor it into smaller files/components.
