@@ -7,6 +7,7 @@ import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbS
 import MediaViewer from "./MediaViewer";
 import BulkActionsBar from "./BulkActionsBar";
 import FileGridContent from "./FileGridContent";
+import { toast } from "@/hooks/use-toast";
 
 type EncryptedFileGridProps = {
   sourceIndex: number;
