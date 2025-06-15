@@ -33,6 +33,9 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
   draggable,
   checkboxClassName = "",
 }) => {
+  // Check for valid encrypted value (non-empty string with a ":")
+  const canDecrypt = file.type !== "folder" && !!file.encrypted && file.encrypted.includes(":") && !file.decrypted;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -83,7 +86,7 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        {file.type !== "folder" && !file.decrypted && (
+        {canDecrypt && (
           <ContextMenuItem onClick={onDecrypt}>
             <Unlock className="w-4 h-4 mr-2" /> Decrypt
           </ContextMenuItem>
