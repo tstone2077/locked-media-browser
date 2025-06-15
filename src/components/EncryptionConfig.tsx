@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Lock, Edit, Trash2, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -7,15 +6,29 @@ import { EncryptionMethodConfig, ENCRYPTION_METHODS } from "@/lib/encryption-met
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
+// Utility type guards
+function isGPG(config: EncryptionMethodConfig): config is { type: "gpg"; privateKey: string; password: string; } {
+  return config.type === "gpg";
+}
+function isAES256(config: EncryptionMethodConfig): config is { type: "aes-256"; password: string; } {
+  return config.type === "aes-256";
+}
+function isAge(config: EncryptionMethodConfig): config is { type: "age"; password: string; } {
+  return config.type === "age";
+}
+
 const ENCRYPTION_TYPES = [
   { value: "gpg", label: "GPG" },
-  { value: "aes-256", label: "AES-256" }
+  { value: "aes-256", label: "AES-256" },
+  { value: "age", label: "age" }, // add age method here
 ];
 
 const EncryptionConfig = () => {
   const { methods, addMethod, removeMethod } = useEncryptionMethods();
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
+
+  // Default form, always have 'privateKey' to avoid TS errors; use type guards to show/hide
   const [form, setForm] = useState<EncryptionMethodConfig>({
     name: "",
     type: "gpg",
@@ -30,8 +43,9 @@ const EncryptionConfig = () => {
   }
 
   function handleAddOrSave() {
+    // Validation for each type
     if (!form.name || !form.password) return;
-    if (form.type === "gpg" && !form.privateKey) return;
+    if (isGPG(form) && !form.privateKey) return;
     if (editIdx !== null) {
       const updatedMethods = methods.map((m, i) => (i === editIdx ? form : m));
       Array(methods.length)
@@ -46,7 +60,7 @@ const EncryptionConfig = () => {
       type: "gpg",
       privateKey: "",
       password: "",
-    });
+    } as EncryptionMethodConfig);
     setEditIdx(null);
     setShowAdd(false);
   }
@@ -61,7 +75,7 @@ const EncryptionConfig = () => {
         type: "gpg",
         privateKey: "",
         password: "",
-      });
+      } as EncryptionMethodConfig);
     }
   }
 
@@ -73,7 +87,7 @@ const EncryptionConfig = () => {
       type: "gpg",
       privateKey: "",
       password: "",
-    });
+    } as EncryptionMethodConfig);
   }
 
   return (
@@ -94,14 +108,23 @@ const EncryptionConfig = () => {
                 <Lock className="text-cyan-400" size={18} />
                 <span className="font-medium text-cyan-200">{m.name}</span>
                 <span className="text-xs tracking-tight bg-cyan-900/30 text-cyan-200 px-2 py-0.5 rounded ml-2">
-                  {m.type === "gpg" ? "GPG" : "AES-256"}
+                  {m.type === "gpg"
+                    ? "GPG"
+                    : m.type === "aes-256"
+                      ? "AES-256"
+                      : m.type === "age"
+                        ? "age"
+                        : ""}
                 </span>
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                {m.type === "gpg"
+                {isGPG(m)
                   ? <>GPG Key <span className="ml-2 opacity-70">{(m.privateKey ?? '').slice(0, 18)}...</span></>
-                  : <>AES-256 Password</>
-                }
+                  : isAES256(m)
+                    ? <>AES-256 Password</>
+                    : isAge(m)
+                      ? <>age Password</>
+                      : null}
               </div>
             </div>
             <div className="flex gap-2 ml-6">
@@ -143,11 +166,30 @@ const EncryptionConfig = () => {
               value={form.type}
               onValueChange={v => {
                 if (!v) return;
-                setForm(f => ({
-                  ...f,
-                  type: v as "gpg" | "aes-256",
-                  privateKey: v === "gpg" ? (f.privateKey ?? "") : undefined,
-                }));
+                setForm(f => {
+                  if (v === "gpg") {
+                    return {
+                      ...f,
+                      type: v,
+                      privateKey: typeof f.privateKey === "string" ? f.privateKey : "",
+                    };
+                  }
+                  if (v === "aes-256") {
+                    return {
+                      ...f,
+                      type: v,
+                      password: f.password ?? "",
+                    };
+                  }
+                  if (v === "age") {
+                    return {
+                      ...f,
+                      type: v,
+                      password: f.password ?? "",
+                    };
+                  }
+                  return { ...f, type: v };
+                });
               }}
               className="mb-2"
             >
@@ -175,15 +217,15 @@ const EncryptionConfig = () => {
               autoFocus
             />
           </div>
-          {form.type === "gpg" && (
+          {isGPG(form) && (
             <div className="mb-2">
               <label className="text-sm">Private Key</label>
               <textarea
                 className="w-full mt-1 p-2 rounded bg-[#10151e] border border-cyan-600 h-20"
-                value={form.type === "gpg" ? (form.privateKey ?? "") : ""}
+                value={form.privateKey ?? ""}
                 onChange={e =>
                   setForm(f =>
-                    f.type === "gpg"
+                    isGPG(f)
                       ? { ...f, privateKey: e.target.value }
                       : f
                   )
@@ -193,7 +235,13 @@ const EncryptionConfig = () => {
           )}
           <div className="mb-2">
             <label className="text-sm">
-              {form.type === "gpg" ? "Password" : "AES-256 Password"}
+              {isGPG(form)
+                ? "Password"
+                : isAES256(form)
+                ? "AES-256 Password"
+                : isAge(form)
+                ? "age Password"
+                : "Password"}
             </label>
             <input
               type="password"

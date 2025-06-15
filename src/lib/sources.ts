@@ -1,5 +1,6 @@
+
 import { useSessionStorage } from "./session-storage";
-import type { SourceConfig } from "./sources";
+import type { SourceConfig } from "./sources/index";
 
 const SOURCES_KEY = "sources";
 
@@ -19,3 +20,4 @@ export function useSources() {
     removeSource,
   };
 }
+
