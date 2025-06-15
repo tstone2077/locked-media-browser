@@ -21,18 +21,25 @@ type EncryptedFileGridProps = {
 const ENCRYPT_PASS = "vault-password";
 
 // MOCKED: Fetch folders from OpenDrive API (replace this with real API if available)
-async function fetchOpenDriveFolders(source: any, path: string[] = []): Promise<{ name: string; parent?: string }[]> {
+async function fetchOpenDriveFolders(source: any, path: string[] = []): Promise<FileEntry[]> {
   // Simulate API directory listing
   await new Promise(res => setTimeout(res, 500)); // Simulate delay
   // Example structure
   if (path.length === 0) {
     return [
-      { name: "Photos" },
-      { name: "Documents" },
+      { name: "Photos", type: "folder", encrypted: "", parent: undefined },
+      { name: "Documents", type: "folder", encrypted: "", parent: undefined }
     ];
   }
-  if (path[path.length - 1] === "Photos") return [{ name: "Family", parent: "Photos" }, { name: "Vacation", parent: "Photos" }];
-  if (path[path.length - 1] === "Documents") return [{ name: "Work", parent: "Documents" }];
+  if (path[path.length - 1] === "Photos")
+    return [
+      { name: "Family", type: "folder", encrypted: "", parent: "Photos" },
+      { name: "Vacation", type: "folder", encrypted: "", parent: "Photos" }
+    ];
+  if (path[path.length - 1] === "Documents")
+    return [
+      { name: "Work", type: "folder", encrypted: "", parent: "Documents" }
+    ];
   return [];
 }
 
@@ -65,23 +72,23 @@ const EncryptedFileGrid = ({
       if (!thisSource || thisSource.type !== "opendrive") return;
       // Fetch folders from OpenDrive API (replace this with real API)
       const foundFolders = await fetchOpenDriveFolders(thisSource, currentPath);
-      // Map to folder FileEntries
       setFilesPerSource(prev => {
         const prevArr = prev[sourceIndex] ?? [];
         // Remove all folders at this level for the opendrive source
         const nonFolder = prevArr.filter(f => f.type !== "folder" || (f.parent && f.parent !== currentFolder));
-        const newFolders = foundFolders.map(({ name, parent }) => ({
+        // Only type 'folder' is added, and type matches FileEntry
+        const newFolders: FileEntry[] = foundFolders.map(({ name, parent }) => ({
           name,
           type: "folder",
           encrypted: "",
-          parent: parent ?? (currentPath.length > 0 ? currentFolder : undefined),
+          parent: parent ?? (currentPath.length > 0 ? currentFolder : undefined)
         }));
         // Only add folders not already present
         const updated = [
           ...nonFolder,
           ...newFolders.filter(nf => !prevArr.some(f => f.type === "folder" && f.name === nf.name && f.parent === nf.parent)),
         ];
-        return { ...prev, [sourceIndex]: updated };
+        return { ...prev, [sourceIndex]: updated as FileEntry[] };
       });
     }
     loadFoldersIfOpenDrive();
