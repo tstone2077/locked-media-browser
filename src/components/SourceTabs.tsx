@@ -49,21 +49,30 @@ const SourceTabs = () => {
     const name = isImage ? `Image-${Date.now()}.png` : `Text-${Date.now()}.txt`;
     setEncryptionFileName(name);
 
-    // Actually encrypt in background, update progress
-    const encrypted = await encrypt(dataUrl, {});
-    setFilesPerSource(prev => {
-      const sourceFiles = prev[active] ?? [];
-      // Add to current folder (not root) if navigated
-      return {
-        ...prev,
-        [active]: [
-          ...sourceFiles,
-          { name, type: isImage ? "image" : "text", encrypted, parent: currentFolder }
-        ]
-      };
-    });
-    setEncryptionFileName(null);
-    reset();
+    try {
+      // Actually encrypt in background, update progress
+      const encrypted = await encrypt(dataUrl, {});
+      setFilesPerSource(prev => {
+        const sourceFiles = prev[active] ?? [];
+        // Add to current folder (not root) if navigated
+        return {
+          ...prev,
+          [active]: [
+            ...sourceFiles,
+            { name, type: isImage ? "image" : "text", encrypted, parent: currentFolder }
+          ]
+        };
+      });
+      setEncryptionFileName(null);
+      reset();
+      toast({ title: `${name} encrypted and added successfully.` });
+      console.log(`[SourceTabs] File added: ${name}`, { encrypted });
+    } catch (err) {
+      setEncryptionFileName(null);
+      reset();
+      toast({ title: `Failed to add ${name}`, description: String(err), variant: "destructive" });
+      console.error("[SourceTabs] Encryption failed:", err);
+    }
   }
 
   function handleAddFolder() {

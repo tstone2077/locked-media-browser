@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
@@ -99,6 +98,7 @@ const EncryptedFileGrid = ({
       if (file.type !== "folder" && !file.decrypted && file.encrypted) {
         if (typeof file.encrypted !== "string" || !file.encrypted.includes(":")) {
           errorCount++;
+          toast({ title: `File ${file.name} is missing or malformed ciphertext`, variant: "destructive" });
           continue;
         }
         try {
@@ -114,8 +114,11 @@ const EncryptedFileGrid = ({
             });
           }
           fileUpdates.push({ idx, updated: { ...file, decrypted: content } });
-        } catch {
+          console.log(`[EncryptedFileGrid] Bulk decrypted ${file.name}`, { decrypted: content });
+        } catch (e) {
           errorCount++;
+          toast({ title: `Decryption failed for ${file.name}`, variant: "destructive" });
+          console.error(`[EncryptedFileGrid] Failed to decrypt file ${file.name}:`, e);
         }
       }
     }
@@ -128,6 +131,10 @@ const EncryptedFileGrid = ({
         });
         return { ...prev, [sourceIndex]: patched };
       });
+      toast({ title: `Decryption done for ${fileUpdates.length} file(s)` });
+    }
+    if (fileUpdates.length === 0 && errorCount === 0) {
+      toast({ title: "No files decrypted.", variant: "default" });
     }
     setSelected([]);
   }
@@ -143,7 +150,10 @@ const EncryptedFileGrid = ({
   }
   async function handleDecrypt(idx: number) {
     const file = files[idx];
-    if (!file.encrypted || !file.encrypted.includes(":")) return;
+    if (!file.encrypted || !file.encrypted.includes(":")) {
+      toast({ title: "File missing or malformed ciphertext", variant: "destructive" });
+      return;
+    }
     try {
       const decryptedBuf = await decryptData(file.encrypted);
       let content: string = "";
@@ -157,7 +167,12 @@ const EncryptedFileGrid = ({
         });
       }
       onUpdateFile(idx, { ...file, decrypted: content });
-    } catch {}
+      toast({ title: `${file.name} decrypted successfully` });
+      console.log(`[EncryptedFileGrid] Decrypted ${file.name}`, { decrypted: content });
+    } catch (e) {
+      toast({ title: `Decryption failed for ${file.name}`, variant: "destructive" });
+      console.error(`[EncryptedFileGrid] Failed to decrypt file ${file.name}:`, e);
+    }
   }
   async function handleEncrypt(idx: number) {
     const file = files[idx];
