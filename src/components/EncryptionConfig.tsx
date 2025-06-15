@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Lock, Edit, Trash2, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEncryptionMethods } from "@/lib/encryption";
-import { GPGConfig, AES256Config, AgeConfig, EncryptionMethodConfig, ENCRYPTION_METHODS } from "@/lib/encryption-methods";
+import { GPGConfig, AES256Config, EncryptionMethodConfig, ENCRYPTION_METHODS } from "@/lib/encryption-methods";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -13,17 +13,13 @@ function isGPG(config: EncryptionMethodConfig): config is GPGConfig {
 function isAES256(config: EncryptionMethodConfig): config is AES256Config {
   return config.type === "aes-256";
 }
-function isAge(config: EncryptionMethodConfig): config is AgeConfig {
-  return config.type === "age";
-}
 
 const ENCRYPTION_TYPES = [
   { value: "gpg", label: "GPG" },
   { value: "aes-256", label: "AES-256" },
-  { value: "age", label: "age" }, // add age method here
 ];
 
-const getDefaultConfig = (type: "gpg" | "aes-256" | "age"): EncryptionMethodConfig => {
+const getDefaultConfig = (type: "gpg" | "aes-256"): EncryptionMethodConfig => {
   if (type === "gpg") {
     return {
       name: "",
@@ -32,17 +28,10 @@ const getDefaultConfig = (type: "gpg" | "aes-256" | "age"): EncryptionMethodConf
       password: "",
     };
   }
-  if (type === "aes-256") {
-    return {
-      name: "",
-      type: "aes-256",
-      password: "",
-    };
-  }
-  // age
+  // aes-256
   return {
     name: "",
-    type: "age",
+    type: "aes-256",
     password: "",
   };
 };
@@ -115,9 +104,7 @@ const EncryptionConfig = () => {
                     ? "GPG"
                     : m.type === "aes-256"
                       ? "AES-256"
-                      : m.type === "age"
-                        ? "age"
-                        : ""}
+                      : ""}
                 </span>
               </div>
               <div className="text-xs text-muted-foreground mt-1">
@@ -125,9 +112,7 @@ const EncryptionConfig = () => {
                   ? <>GPG Key <span className="ml-2 opacity-70">{(m.privateKey ?? '').slice(0, 18)}...</span></>
                   : isAES256(m)
                     ? <>AES-256 Password</>
-                    : isAge(m)
-                      ? <>age Password</>
-                      : null}
+                    : null}
               </div>
             </div>
             <div className="flex gap-2 ml-6">
@@ -185,13 +170,6 @@ const EncryptionConfig = () => {
                       password: f.password ?? "",
                     };
                   }
-                  if (v === "age") {
-                    return {
-                      name: f.name ?? "",
-                      type: "age",
-                      password: f.password ?? "",
-                    };
-                  }
                   return getDefaultConfig("gpg");
                 });
               }}
@@ -242,8 +220,6 @@ const EncryptionConfig = () => {
                 ? "Password"
                 : isAES256(form)
                 ? "AES-256 Password"
-                : isAge(form)
-                ? "age Password"
                 : "Password"}
             </label>
             <input
