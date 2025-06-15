@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import JSZip from "jszip";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { toast } from "@/hooks/use-toast";
 
 // Updated exportVault
 async function exportVault(filesPerSource: Record<number, FileEntry[]>) {
@@ -20,9 +21,9 @@ async function exportVault(filesPerSource: Record<number, FileEntry[]>) {
   });
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  // Check for browser file picker support
-  // @ts-ignore
-  if (window.showSaveFilePicker) {
+
+  // Correct feature-detection for showSaveFilePicker (and handle type)
+  if (typeof window !== "undefined" && "showSaveFilePicker" in window) {
     // @ts-ignore
     const pickerOpts = {
       suggestedName: "safebox-vault.zip",
@@ -97,17 +98,8 @@ function importVault(file: File, setFilesPerSource: (updater: (old: Record<numbe
           ...newFiles,
         };
       });
-      // Show more accurate toast (no reload required)
-      // replace: alert("Import successful! Reload the vault tab to view imported files.");
-      if (window && "toast" in window) {
-        // Custom: if you had a global toast; normally use shadcn
-        window.toast("Import successful! Imported files are now visible.");
-      } else {
-        // Use shadcn toast if available
-        import("@/hooks/use-toast").then(mod => {
-          mod.toast({ title: "Import successful!", description: "Imported files are now visible below." });
-        });
-      }
+      // Use shadcn toast only
+      toast({ title: "Import successful!", description: "Imported files are now visible below." });
     } catch (e) {
       alert("Error unpacking vault zip: " + (e as Error).message);
     }
