@@ -1,5 +1,6 @@
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { getFilesPerSourceFromIDB, setFilesPerSourceInIDB } from "@/lib/indexeddb";
 
 export type FileEntry = {
   name: string;
@@ -25,6 +26,23 @@ export function useFileVault() {
 
 export function FileVaultProvider({ children }: { children: ReactNode }) {
   const [filesPerSource, setFilesPerSource] = useState<Record<number, FileEntry[]>>({});
+
+  // Load filesPerSource from IndexedDB on mount
+  useEffect(() => {
+    let mounted = true;
+    getFilesPerSourceFromIDB().then(data => {
+      if (mounted && data) {
+        setFilesPerSource(data);
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  // Save to IndexedDB on change
+  useEffect(() => {
+    setFilesPerSourceInIDB(filesPerSource);
+  }, [filesPerSource]);
+
   return (
     <FileVaultContext.Provider value={{ filesPerSource, setFilesPerSource }}>
       {children}
