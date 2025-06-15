@@ -322,20 +322,79 @@ const EncryptedFileGrid = ({
         <Breadcrumb>
           <BreadcrumbList>
             {getBreadcrumbs().map((crumb, i, arr) => (
-              <span key={i}>
+              <span key={i} className="relative">
+                {/* For all but the last crumb, make it a drop target */}
                 <BreadcrumbItem>
                   {i < arr.length - 1 ? (
                     <BreadcrumbLink
                       asChild
-                      className="cursor-pointer text-cyan-400 hover:text-cyan-100"
+                      className={`
+                        cursor-pointer
+                        text-cyan-400 hover:text-cyan-100
+                        px-3 py-2 rounded-lg
+                        hover:bg-cyan-900/30
+                        transition-all
+                        min-w-[52px] min-h-[32px] flex items-center justify-center
+                        dropzone-breadcrumb
+                        `}
+                      style={{ fontSize: "1.1rem", fontWeight: 500, border: "2px dashed transparent" }}
+                      // Drag & Drop handlers for breadcrumb (move to this folder)
                       onClick={() => setCurrentPath(arr.slice(1, i + 1).map(c => c.label as string))}
+                      onDragOver={e => {
+                        e.preventDefault();
+                        e.currentTarget.style.borderColor = "#06b6d4";
+                        e.currentTarget.style.backgroundColor = "rgba(14, 116, 144, .10)";
+                      }}
+                      onDragEnter={e => {
+                        e.preventDefault();
+                        e.currentTarget.style.borderColor = "#06b6d4";
+                        e.currentTarget.style.backgroundColor = "rgba(14, 116, 144, .16)";
+                      }}
+                      onDragLeave={e => {
+                        e.currentTarget.style.borderColor = "transparent";
+                        e.currentTarget.style.backgroundColor = "";
+                      }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.style.borderColor = "transparent";
+                        e.currentTarget.style.backgroundColor = "";
+                        // Move the selected or dragged files to this folder level
+                        // Determine target path up to the clicked crumb
+                        const targetPath = arr.slice(1, i + 1).map(c => c.label as string);
+                        const targetFolder = targetPath.length > 0 ? targetPath[targetPath.length - 1] : undefined;
+                        if (draggedIdx !== null) {
+                          onDropOnFolder(targetFolder);
+                        } else if (selected.length > 0) {
+                          // Bulk move
+                          setFilesPerSource(prev => {
+                            const old = prev[sourceIndex] ?? [];
+                            return {
+                              ...prev,
+                              [sourceIndex]: old.map((entry, idx) =>
+                                selected.includes(idx) && entry.type !== "folder"
+                                  ? { ...entry, parent: targetFolder }
+                                  : entry
+                              ),
+                            };
+                          });
+                          setSelected([]);
+                        }
+                        // Change path (navigate)
+                        setCurrentPath(targetPath);
+                      }}
                     >
                       <span>
                         {crumb.label}
                       </span>
                     </BreadcrumbLink>
                   ) : (
-                    <span className="font-semibold text-cyan-100">{crumb.label}</span>
+                    <span
+                      className="font-semibold text-cyan-100 px-3 py-2 rounded-lg min-w-[52px] min-h-[32px] flex items-center justify-center"
+                      style={{ fontSize: "1.1rem" }}
+                    >
+                      {crumb.label}
+                    </span>
                   )}
                 </BreadcrumbItem>
                 {i < arr.length - 1 && <BreadcrumbSeparator />}
