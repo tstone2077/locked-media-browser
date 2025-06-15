@@ -1,7 +1,7 @@
 
 import { useSources } from "@/lib/sources";
 import EncryptedFileGrid from "./EncryptedFileGrid";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Image, FolderPlus, FilePlus } from "lucide-react";
 import AddFileModal from "./AddFileModal";
 import AddFolderModal from "./AddFolderModal";
@@ -11,6 +11,14 @@ import { Progress } from "@/components/ui/progress";
 import { useCrypto } from "@/hooks/useCrypto";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 import { toast } from "@/hooks/use-toast";
+
+// Drag-and-drop helpers
+function isFileImage(file: File) {
+  return file.type.startsWith("image/");
+}
+function isFileText(file: File) {
+  return file.type.startsWith("text/");
+}
 
 const initialFilesPerSource: Record<number, FileEntry[]> = {};
 
@@ -25,6 +33,8 @@ const SourceTabs = () => {
 
   // Modal state for "Add File"
   const [addFileOpen, setAddFileOpen] = useState(false);
+  // NEW: To prefill modal with data URL if drag+drop
+  const [addFilePrefill, setAddFilePrefill] = useState<string | undefined>(undefined);
 
   // New state for folder modal
   const [addFolderOpen, setAddFolderOpen] = useState(false);
@@ -46,6 +56,64 @@ const SourceTabs = () => {
   const { encryptData, progress } = useCrypto(ENCRYPT_PASS);
   const [isEncrypting, setIsEncrypting] = useState(false);
   const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
+
+  // DRAG AND DROP
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragTargetCount = useRef(0); // Track nested dragenter/dragleave
+
+  // Handle drag events on top-level container
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (!isDragOver) setIsDragOver(true);
+  }
+  function handleDragEnter(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    dragTargetCount.current += 1;
+    setIsDragOver(true);
+  }
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    dragTargetCount.current -= 1;
+    if (dragTargetCount.current <= 0) {
+      setIsDragOver(false);
+      dragTargetCount.current = 0;
+    }
+  }
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    dragTargetCount.current = 0;
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        setAddFilePrefill(result); // set to prefill modal
+        setAddFileOpen(true);
+      } else {
+        toast({
+          title: "Could not read the dropped file.",
+          description: "FileReader result was not a string.",
+          variant: "destructive"
+        });
+      }
+    };
+
+    // Only support image and text files for now, as per existing AddFileModal UI
+    if (isFileImage(file)) {
+      reader.readAsDataURL(file);
+    } else if (isFileText(file)) {
+      reader.readAsDataURL(file); // We'll base64 encode text, consistent with modal
+    } else {
+      toast({
+        title: "Unsupported file type",
+        description: "Only image and text files are supported for now.",
+        variant: "destructive"
+      });
+    }
+  }
 
   async function handleAddFile(dataUrl: string) {
     const isImage = dataUrl.startsWith("data:image/");
@@ -163,8 +231,24 @@ const SourceTabs = () => {
   }
 
   return (
-    <div className="w-full">
-      <div className="flex items-center gap-4 mb-6">
+    <div
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`w-full relative ${isDragOver ? "z-50" : ""}`}
+      style={{ minHeight: 300 }}
+    >
+      {/* Overlay for drag */}
+      {isDragOver && (
+        <div className="absolute inset-0 bg-cyan-800/60 flex flex-col justify-center items-center z-50 pointer-events-none animate-fade-in-fast rounded-2xl border-4 border-cyan-300">
+          <div className="text-cyan-50 text-2xl font-bold mb-2">
+            Drop file to add to vault
+          </div>
+          <div className="text-cyan-100 font-mono text-base opacity-90">Supported: Images, Text</div>
+        </div>
+      )}
+      <div className={`flex items-center gap-4 mb-6 ${isDragOver ? "opacity-40 pointer-events-none" : ""}`}>
         <Button
           variant="secondary"
           className="flex items-center gap-2"
@@ -175,7 +259,10 @@ const SourceTabs = () => {
         <Button
           variant="secondary"
           className="flex items-center gap-2"
-          onClick={() => setAddFileOpen(true)}
+          onClick={() => {
+            setAddFileOpen(true);
+            setAddFilePrefill(undefined);
+          }}
           disabled={isEncrypting}
         >
           <FilePlus className="w-4 h-4" /> Add File
@@ -183,10 +270,15 @@ const SourceTabs = () => {
         <AddFileModal
           open={addFileOpen}
           onOpenChange={open => {
-            if (!open) setEncryptionFileName(null);
+            if (!open) {
+              setEncryptionFileName(null);
+              setAddFilePrefill(undefined);
+            }
             setAddFileOpen(open);
           }}
           onAddFile={handleAddFile}
+          // @ts-ignore (extra prop for prefill)
+          prefill={addFilePrefill}
         />
       </div>
 
@@ -247,3 +339,4 @@ const SourceTabs = () => {
 };
 
 export default SourceTabs;
+

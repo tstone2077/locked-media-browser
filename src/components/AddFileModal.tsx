@@ -2,20 +2,27 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type AddFileModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAddFile: (dataUrl: string) => void;
+  prefill?: string; // NEW prop for default value (optional)
 };
 
 function isImageDataUrl(url: string) {
   return url.startsWith("data:image/");
 }
 
-const AddFileModal = ({ open, onOpenChange, onAddFile }: AddFileModalProps) => {
+const AddFileModal = ({ open, onOpenChange, onAddFile, prefill }: AddFileModalProps) => {
   const [dataUrl, setDataUrl] = useState("");
+
+  // Populate field with prefill, if provided (e.g. when drag & drop)
+  useEffect(() => {
+    if (prefill) setDataUrl(prefill);
+    else if (open === true) setDataUrl(""); // reset only on open
+  }, [prefill, open]);
 
   function handleAdd() {
     if (!dataUrl.trim()) return;
