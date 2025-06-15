@@ -75,7 +75,7 @@ const EncryptedFileGrid = ({
 
   function getBreadcrumbs() {
     return [
-      { label: "Root", value: undefined, idx: -1 }, // ensure idx is always present
+      { label: "Root", value: undefined, idx: -1 },
       ...currentPath.map((folder, i) => ({
         label: folder,
         value: folder,
@@ -126,6 +126,7 @@ const EncryptedFileGrid = ({
       return;
     }
     try {
+      console.log("[EncryptedFileGrid] handleDecrypt for", file.name, file); // DEBUG
       const decryptedBuf = await decryptData(file.encrypted);
       let content: string = "";
       if (file.type === "text") {
@@ -138,9 +139,11 @@ const EncryptedFileGrid = ({
           reader.readAsDataURL(blob);
         });
       }
+      console.log("[EncryptedFileGrid] Decrypted content:", content); // DEBUG
       onUpdateFile(idx, { ...file, decrypted: content });
       toast({ title: "Decryption successful" });
     } catch (e: any) {
+      console.error("[EncryptedFileGrid] Decryption failed", e); // DEBUG
       toast({ title: "Decryption failed", description: e.message });
     }
   }
@@ -156,9 +159,11 @@ const EncryptedFileGrid = ({
         const buf = await response.arrayBuffer();
         encrypted = await encryptData(buf);
       }
+      console.log("[EncryptedFileGrid] Encrypted value:", encrypted); // DEBUG
       onUpdateFile(idx, { ...file, decrypted: undefined, encrypted });
       toast({ title: "Encryption successful" });
     } catch (e: any) {
+      console.error("[EncryptedFileGrid] Encryption failed", e); // DEBUG
       toast({ title: "Encryption failed", description: e.message });
     }
   }
@@ -202,8 +207,7 @@ const EncryptedFileGrid = ({
         <Breadcrumb>
           <BreadcrumbList>
             {getBreadcrumbs().map((crumb, i, arr) => (
-              // Only key and children on Fragment!
-              <React.Fragment key={i}>
+              <span key={i}>
                 <BreadcrumbItem>
                   {i < arr.length - 1 ? (
                     <BreadcrumbLink
@@ -225,7 +229,7 @@ const EncryptedFileGrid = ({
                   )}
                 </BreadcrumbItem>
                 {i < arr.length - 1 && <BreadcrumbSeparator />}
-              </React.Fragment>
+              </span>
             ))}
           </BreadcrumbList>
         </Breadcrumb>

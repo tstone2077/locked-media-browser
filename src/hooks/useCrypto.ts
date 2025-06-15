@@ -48,32 +48,41 @@ export function useCrypto(passphrase: string) {
 
   async function encryptData(raw: ArrayBuffer | string) {
     setProgress(0);
-    const buf = typeof raw === "string" ? TEXT_ENCODER.encode(raw) : new Uint8Array(raw);
-    const iv = randomIv();
-    const key = await getKey();
-    const ciphertext = await window.crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      key,
-      buf
-    );
-    // Store iv + ciphertext, both base64
-    setProgress(100);
-    return base64FromBuf(iv) + ":" + base64FromBuf(ciphertext);
+    try {
+      const buf = typeof raw === "string" ? TEXT_ENCODER.encode(raw) : new Uint8Array(raw);
+      const iv = randomIv();
+      const key = await getKey();
+      const ciphertext = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        key,
+        buf
+      );
+      setProgress(100);
+      return base64FromBuf(iv) + ":" + base64FromBuf(ciphertext);
+    } catch (err) {
+      console.error("[useCrypto] encryptData error", err); // DEBUG
+      throw err;
+    }
   }
 
   async function decryptData(cipher: string) {
     setProgress(0);
-    const [ivB64, ctB64] = cipher.split(":");
-    const iv = bufFromBase64(ivB64);
-    const ct = bufFromBase64(ctB64);
-    const key = await getKey();
-    let decrypted = await window.crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      key,
-      ct
-    );
-    setProgress(100);
-    return decrypted;
+    try {
+      const [ivB64, ctB64] = cipher.split(":");
+      const iv = bufFromBase64(ivB64);
+      const ct = bufFromBase64(ctB64);
+      const key = await getKey();
+      let decrypted = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        ct
+      );
+      setProgress(100);
+      return decrypted;
+    } catch (err) {
+      console.error("[useCrypto] decryptData error", err); // DEBUG
+      throw err;
+    }
   }
 
   return {
@@ -82,3 +91,4 @@ export function useCrypto(passphrase: string) {
     progress,
   };
 }
+
