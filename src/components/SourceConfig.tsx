@@ -73,23 +73,32 @@ function importVault(file: File, setFilesPerSource: (updater: (old: Record<numbe
 
       const filePromises: Promise<void>[] = [];
       zip.forEach((relativePath, zipEntry) => {
-        // Expect format: source-INDEX/filename...
+        // Expect format: source-INDEX/filename... or source-INDEX/folder1/folder2/filename...
         const match = /^source-(\d+)\/(.+)$/.exec(relativePath);
         if (!zipEntry.dir && match) {
           const sourceIdx = parseInt(match[1], 10);
-          const fileName = match[2];
-          // Detect "folders": no extension, or special token
+          const fullPath = match[2]; // could be e.g., "subfolder1/Image-xxx.png"
+          // Get folder path and filename
+          let parent: string | undefined = undefined;
+          let fileName = fullPath;
+          if (fullPath.includes("/")) {
+            const parts = fullPath.split("/");
+            fileName = parts[parts.length - 1];
+            if (parts.length > 1) {
+              parent = parts[parts.length - 2]; // immediate parent folder
+            }
+          }
+          // Detect type
           const ext = fileName.split('.').pop()?.toLowerCase();
           let type: "image" | "text" | "folder" = "text";
           if (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".gif") || fileName.endsWith('.webp')) {
             type = "image";
           } else if (!fileName.includes('.')) {
-            // No extension: treat as folder
             type = "folder";
           } else {
             type = "text";
           }
-          // Folders are just entries with type 'folder', no encrypted content necessary (but for backward compat, still required)
+          // Folders are just entries with type 'folder', but backward compat needed
           filePromises.push(
             zipEntry.async("text").then(content => {
               if (!newFiles[sourceIdx]) newFiles[sourceIdx] = [];
@@ -97,6 +106,7 @@ function importVault(file: File, setFilesPerSource: (updater: (old: Record<numbe
                 name: fileName,
                 type,
                 encrypted: type === "folder" ? "" : content,
+                parent,
               });
             })
           );
@@ -111,7 +121,6 @@ function importVault(file: File, setFilesPerSource: (updater: (old: Record<numbe
           ...newFiles,
         };
       });
-      // Use shadcn toast only
       toast({ title: "Import successful!", description: "Imported files are now visible below." });
     } catch (e) {
       alert("Error unpacking vault zip: " + (e as Error).message);
