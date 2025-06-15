@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useFileVault } from "@/context/FileVaultContext";
 import { Folder, ChevronLeft } from "lucide-react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import MediaViewer from "./MediaViewer"; // Use static import
 
 type EncryptedFileGridProps = {
   sourceIndex: number;
@@ -252,70 +254,77 @@ const EncryptedFileGrid = ({
       {/* GRID */}
       <div className="grid gap-8 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 animate-fade-in">
         {/* --- Folders at top, clickable --- */}
-        {folders.map(folder =>
-          <FileGridItem
+        {folders.map(folder => (
+          <div
             key={folder.name + (folder as any).__idx}
-            file={folder}
-            checked={selected.includes((folder as any).__idx)}
-            onCheck={checked => handleCheck((folder as any).__idx, checked)}
-            onMove={() => null}
-            onDelete={() => onDeleteFile((folder as any).__idx)}
-            onDecrypt={() => null}
-            onEncrypt={() => null}
-            onDragStart={e => onDragStart(e, (folder as any).__idx)}
-            draggable={false}
-            // Folders: clicking opens view
+            className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
             onClick={() => setCurrentPath([...currentPath, folder.name])}
-          />
-        )}
+            onDrop={e => { e.preventDefault(); onDropOnFolder(folder.name); }}
+            onDragOver={e => e.preventDefault()}
+          >
+            <FileGridItem
+              file={folder}
+              checked={selected.includes((folder as any).__idx)}
+              onCheck={checked => handleCheck((folder as any).__idx, checked)}
+              onMove={() => null}
+              onDelete={() => onDeleteFile((folder as any).__idx)}
+              onDecrypt={() => null}
+              onEncrypt={() => null}
+              onDragStart={e => onDragStart(e, (folder as any).__idx)}
+              draggable={false}
+            />
+          </div>
+        ))}
 
         {/* --- FILES in current folder --- */}
         {filesInCurrent.map(file =>
-          <FileGridItem
+          <div
             key={file.name + file.__idx}
-            file={file}
-            checked={selected.includes(file.__idx)}
-            onCheck={checked => handleCheck(file.__idx, checked)}
-            onMove={() => {
-              if (!allFolders.length) return;
-              const target = prompt("Move to which folder?", allFolders[0]);
-              if (target) handleMove(target);
-            }}
-            onDelete={() => onDeleteFile(file.__idx)}
-            onDecrypt={() => handleDecrypt(file.__idx)}
-            onEncrypt={() => handleEncrypt(file.__idx)}
-            onDragStart={e => onDragStart(e, file.__idx)}
-            draggable={file.type !== "folder"}
-            // Click opens media viewer if not folder
+            className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
             onClick={() => {
               setMediaViewer({ fileIdx: file.__idx, open: true });
             }}
-          />
+          >
+            <FileGridItem
+              file={file}
+              checked={selected.includes(file.__idx)}
+              onCheck={checked => handleCheck(file.__idx, checked)}
+              onMove={() => {
+                if (!allFolders.length) return;
+                const target = prompt("Move to which folder?", allFolders[0]);
+                if (target) handleMove(target);
+              }}
+              onDelete={() => onDeleteFile(file.__idx)}
+              onDecrypt={() => handleDecrypt(file.__idx)}
+              onEncrypt={() => handleEncrypt(file.__idx)}
+              onDragStart={e => onDragStart(e, file.__idx)}
+              draggable={file.type !== "folder"}
+            />
+          </div>
         )}
       </div>
       {/* Media Viewer (outside grid): shows when open */}
-      {mediaViewer.open && files[mediaViewer.fileIdx] ? (
-        import('src/components/MediaViewer').then(({ default: MediaViewer }) => (
-          <MediaViewer
-            open={mediaViewer.open}
-            setOpen={(open: boolean) => setMediaViewer(m => ({ ...m, open }))}
-            file={files[mediaViewer.fileIdx]}
-            onPrev={() => {
-              // Previous file in the visible files
-              const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-              if (currentIdx > 0) {
-                setMediaViewer({ fileIdx: filesInCurrent[currentIdx - 1].__idx, open: true });
-              }
-            }}
-            onNext={() => {
-              // Next file in the visible files
-              const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-              if (currentIdx < filesInCurrent.length - 1) {
-                setMediaViewer({ fileIdx: filesInCurrent[currentIdx + 1].__idx, open: true });
-              }
-            }}
-          />
-        ))
+      {mediaViewer.open && files[mediaViewer.fileIdx] && 
+        (files[mediaViewer.fileIdx].type === "image" || files[mediaViewer.fileIdx].type === "text") ? (
+        <MediaViewer
+          open={mediaViewer.open}
+          setOpen={(open: boolean) => setMediaViewer(m => ({ ...m, open }))}
+          file={files[mediaViewer.fileIdx] as any}
+          onPrev={() => {
+            // Previous file in the visible files
+            const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
+            if (currentIdx > 0) {
+              setMediaViewer({ fileIdx: filesInCurrent[currentIdx - 1].__idx, open: true });
+            }
+          }}
+          onNext={() => {
+            // Next file in the visible files
+            const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
+            if (currentIdx < filesInCurrent.length - 1) {
+              setMediaViewer({ fileIdx: filesInCurrent[currentIdx + 1].__idx, open: true });
+            }
+          }}
+        />
       ) : null}
     </div>
   );
