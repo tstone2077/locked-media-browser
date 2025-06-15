@@ -11,8 +11,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/hooks/use-toast";
 // ENCRYPTION for vault metadata
 import { useCrypto } from "@/hooks/useCrypto";
-import SourceConfigLocal from "./SourceConfigLocal";
-import SourceConfigOpenDrive from "./SourceConfigOpenDrive";
+import SourceConfigLocal from "./Sources/SourceConfigLocal";
+import SourceConfigOpenDrive from "./Sources/SourceConfigOpenDrive";
 
 // Utility to get generic file name for index
 function getGenericFileName(idx: number) {
