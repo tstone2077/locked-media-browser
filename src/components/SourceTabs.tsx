@@ -58,7 +58,14 @@ const SourceTabs = () => {
 
   // DRAG AND DROP
   const [isDragOver, setIsDragOver] = useState(false);
-  const dragTargetCount = useRef(0); // Track nested dragenter/dragleave
+  const dragTargetCount = useRef(0);
+
+  // Helper to determine if drag is from vault media (not a "new file" add)
+  // We'll set a custom property in drag events from within vault grid moves.
+  function isInternalVaultDrag(e: React.DragEvent) {
+    // Check for custom MIME type set in FileGridItem draggable
+    return !!e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("application/x-vault-internal");
+  }
 
   // Handle drag events on top-level container
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
@@ -81,6 +88,12 @@ const SourceTabs = () => {
     e.preventDefault();
     setIsDragOver(false);
     dragTargetCount.current = 0;
+
+    // If dragging from vault itself (using custom MIME), skip handling here!
+    if (isInternalVaultDrag(e)) {
+      // Do not treat as a new file drop
+      return;
+    }
 
     const files = e.dataTransfer.files;
     const droppedText = e.dataTransfer.getData("text/plain")?.trim();

@@ -383,22 +383,29 @@ const EncryptedFileGrid = ({
               (selectedMediaFile.type === "image" ? getThumbnail(selectedMediaFile) : ""),
             liked: selectedMediaFile.liked,
           }}
+          // CYCLE behavior: wrap around if left/right at ends
           onPrev={() => {
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-            for (let i = currentIdx - 1; i >= 0; i--) {
+            let i = currentIdx - 1;
+            while (i !== currentIdx) {
+              if (i < 0) i = filesInCurrent.length - 1;
               if (filesInCurrent[i].decrypted && (filesInCurrent[i].type === "image" || filesInCurrent[i].type === "text")) {
                 setMediaViewer({ fileIdx: filesInCurrent[i].__idx, open: true });
                 break;
               }
+              i--;
+              if (i < 0) i = filesInCurrent.length - 1; // wrap
             }
           }}
           onNext={() => {
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-            for (let i = currentIdx + 1; i < filesInCurrent.length; i++) {
+            let i = (currentIdx + 1) % filesInCurrent.length;
+            while (i !== currentIdx) {
               if (filesInCurrent[i].decrypted && (filesInCurrent[i].type === "image" || filesInCurrent[i].type === "text")) {
                 setMediaViewer({ fileIdx: filesInCurrent[i].__idx, open: true });
                 break;
               }
+              i = (i + 1) % filesInCurrent.length;
             }
           }}
         />

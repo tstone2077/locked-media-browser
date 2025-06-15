@@ -1,5 +1,5 @@
 import { X, ArrowLeft, ArrowRight, Lock } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -99,6 +99,27 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
   // -- NEW: check if we're showing a locked image (i.e., fallback/placeholder image) --
   const isImageLocked =
     file.type === "image" && (!file.decrypted || file.decrypted === "/placeholder.svg");
+
+  React.useEffect(() => {
+    if (!open) return;
+    // Keyboard events: left/right for navigation & ESC to close
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        onPrev && onPrev();
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        onNext && onNext();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onPrev, onNext, setOpen]);
 
   return (
     // Full screen overlay, no padding

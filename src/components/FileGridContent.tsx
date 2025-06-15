@@ -71,6 +71,12 @@ const FileGridContent = ({
     }
   };
 
+  // Customized onDragStart: set x-vault-internal type for vault files/folders
+  function handleDragStartForVault(e: React.DragEvent, idx: number) {
+    e.dataTransfer.setData("application/x-vault-internal", "1");
+    onDragStart(e, idx);
+  }
+
   return (
     <div className="grid gap-8 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 animate-fade-in">
       {folders.map(folder => (
@@ -92,7 +98,7 @@ const FileGridContent = ({
             onDelete={() => onDeleteFile(folder.__idx)}
             onDecrypt={() => null}
             onEncrypt={() => null}
-            onDragStart={e => onDragStart(e, folder.__idx)}
+            onDragStart={e => handleDragStartForVault(e, folder.__idx)}
             draggable={false}
             checkboxClassName="skip-folder-open"
           />
@@ -103,7 +109,6 @@ const FileGridContent = ({
           key={file.name + file.__idx}
           className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
           onClick={async () => {
-            // Only handle files, not folders
             if (file.type === "image" || file.type === "text") {
               if (file.decrypted) {
                 setMediaViewer({ fileIdx: file.__idx, open: true });
@@ -125,7 +130,7 @@ const FileGridContent = ({
             onDelete={() => onDeleteFile(file.__idx)}
             onDecrypt={() => handleDecrypt(file)}
             onEncrypt={() => onEncrypt(file.__idx)}
-            onDragStart={e => onDragStart(e, file.__idx)}
+            onDragStart={e => handleDragStartForVault(e, file.__idx)}
             draggable={file.type !== "folder"}
             checkboxClassName=""
           />
