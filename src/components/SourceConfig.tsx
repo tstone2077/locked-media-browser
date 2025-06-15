@@ -64,15 +64,25 @@ function importVault(file: File, setFilesPerSource: (updater: (old: Record<numbe
         if (!zipEntry.dir && match) {
           const sourceIdx = parseInt(match[1], 10);
           const fileName = match[2];
-          // Try to guess file type - fallback to text if unknown
-          let type: "image" | "text" = fileName.endsWith(".png") ? "image" : "text";
+          // Detect "folders": no extension, or special token
+          const ext = fileName.split('.').pop()?.toLowerCase();
+          let type: "image" | "text" | "folder" = "text";
+          if (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".gif") || fileName.endsWith('.webp')) {
+            type = "image";
+          } else if (!fileName.includes('.')) {
+            // No extension: treat as folder
+            type = "folder";
+          } else {
+            type = "text";
+          }
+          // Folders are just entries with type 'folder', no encrypted content necessary (but for backward compat, still required)
           filePromises.push(
             zipEntry.async("text").then(content => {
               if (!newFiles[sourceIdx]) newFiles[sourceIdx] = [];
               newFiles[sourceIdx].push({
                 name: fileName,
                 type,
-                encrypted: content,
+                encrypted: type === "folder" ? "" : content,
               });
             })
           );
@@ -87,7 +97,17 @@ function importVault(file: File, setFilesPerSource: (updater: (old: Record<numbe
           ...newFiles,
         };
       });
-      alert("Import successful! Reload the vault tab to view imported files.");
+      // Show more accurate toast (no reload required)
+      // replace: alert("Import successful! Reload the vault tab to view imported files.");
+      if (window && "toast" in window) {
+        // Custom: if you had a global toast; normally use shadcn
+        window.toast("Import successful! Imported files are now visible.");
+      } else {
+        // Use shadcn toast if available
+        import("@/hooks/use-toast").then(mod => {
+          mod.toast({ title: "Import successful!", description: "Imported files are now visible below." });
+        });
+      }
     } catch (e) {
       alert("Error unpacking vault zip: " + (e as Error).message);
     }

@@ -75,7 +75,7 @@ const EncryptedFileGrid = ({
 
   function getBreadcrumbs() {
     return [
-      { label: "Root", value: undefined },
+      { label: "Root", value: undefined, idx: -1 }, // ensure idx is always present
       ...currentPath.map((folder, i) => ({
         label: folder,
         value: folder,
@@ -202,6 +202,7 @@ const EncryptedFileGrid = ({
         <Breadcrumb>
           <BreadcrumbList>
             {getBreadcrumbs().map((crumb, i, arr) => (
+              // Only key and children on Fragment!
               <React.Fragment key={i}>
                 <BreadcrumbItem>
                   {i < arr.length - 1 ? (
@@ -233,8 +234,9 @@ const EncryptedFileGrid = ({
       <div className="mb-2 flex gap-2">
         {selected.length > 0 && (
           <>
-            <Button variant="destructive" onClick={handleDeleteSelected}>
-              <Trash2 className="w-4 h-4" />
+            <Button variant="destructive" onClick={handleDeleteSelected} className="flex items-center gap-1">
+              <Trash2 className="w-4 h-4" /> {/* now an icon-only button */}
+              {/* <span>Delete Selected</span> */}
             </Button>
             {allFolders.length > 0 && (
               <div className="relative">
@@ -262,6 +264,7 @@ const EncryptedFileGrid = ({
             key={folder.name + (folder as any).__idx}
             className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
             onClick={e => {
+              // Prevent open folder on checkbox or elements with .skip-folder-open
               if (
                 (e.target as HTMLElement).closest(".skip-folder-open")
               ) {
