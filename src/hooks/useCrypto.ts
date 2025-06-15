@@ -1,3 +1,4 @@
+
 /**
  * Hook that provides encrypt/decrypt file utilities using native Web Crypto API
  * Uses AES-GCM for simplicity, base64 for output
@@ -18,7 +19,6 @@ function bufFromBase64(base64: string) {
   try {
     return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
   } catch (e) {
-    console.error("[useCrypto] bufFromBase64: invalid base64!", base64);
     throw new Error("Invalid base64 encoding while decoding encrypted data.");
   }
 }
@@ -28,7 +28,7 @@ export function useCrypto(passphrase: string) {
 
   async function getKey() {
     // Derive key from passphrase via PBKDF2
-    const salt = TEXT_ENCODER.encode("filevault-static-salt"); // Replace for real use!
+    const salt = TEXT_ENCODER.encode("filevault-static-salt");
     const keyMaterial = await window.crypto.subtle.importKey(
       "raw",
       TEXT_ENCODER.encode(passphrase),
@@ -36,7 +36,6 @@ export function useCrypto(passphrase: string) {
       false,
       ["deriveKey"]
     );
-
     return await window.crypto.subtle.deriveKey(
       {
         name: "PBKDF2",
@@ -65,7 +64,6 @@ export function useCrypto(passphrase: string) {
       setProgress(100);
       return base64FromBuf(iv) + ":" + base64FromBuf(ciphertext);
     } catch (err) {
-      console.error("[useCrypto] encryptData error", err); // DEBUG
       throw err;
     }
   }
@@ -91,7 +89,6 @@ export function useCrypto(passphrase: string) {
       setProgress(100);
       return decrypted;
     } catch (err) {
-      console.error("[useCrypto] decryptData error", err, cipher); // DEBUG
       throw err;
     }
   }
