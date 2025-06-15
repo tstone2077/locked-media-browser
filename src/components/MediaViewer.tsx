@@ -1,3 +1,4 @@
+import React from "react";
 import { X, ArrowLeft, ArrowRight, Lock } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
