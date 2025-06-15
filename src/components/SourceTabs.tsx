@@ -8,8 +8,7 @@ import AddFolderModal from "./AddFolderModal";
 import EncryptionProgressBar from "./EncryptionProgressBar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
--import { useAsyncEncryption } from "@/hooks/useAsyncEncryption";
-+import { useCrypto } from "@/hooks/useCrypto";
+import { useCrypto } from "@/hooks/useCrypto";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -36,98 +35,70 @@ const SourceTabs = () => {
   // current folder path for this tab
   const currentPath = currentPathPerSource[active] ?? [];
   const setCurrentPath = (path: string[]) => {
-    setCurrentPathPerSource(paths => ({
+    setCurrentPathPerSource((paths) => ({
       ...paths,
-      [active]: path
+      [active]: path,
     }));
   };
   const currentFolder = currentPath.length ? currentPath[currentPath.length - 1] : undefined;
 
--  // encryption
--  const { encrypt, isEncrypting, progress, reset } = useAsyncEncryption();
--  const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
-+  // Use real crypto
-+  const { encryptData, progress } = useCrypto(ENCRYPT_PASS);
-+  const [isEncrypting, setIsEncrypting] = useState(false);
-+  const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
+  // encryption with WebCrypto API
+  const { encryptData, progress } = useCrypto(ENCRYPT_PASS);
+  const [isEncrypting, setIsEncrypting] = useState(false);
+  const [encryptionFileName, setEncryptionFileName] = useState<string | null>(null);
 
   async function handleAddFile(dataUrl: string) {
-    // Basic image/text type distinction
     const isImage = dataUrl.startsWith("data:image/");
     const name = isImage ? `Image-${Date.now()}.png` : `Text-${Date.now()}.txt`;
     setEncryptionFileName(name);
--    try {
--      // Actually encrypt in background, update progress
--      const encrypted = await encrypt(dataUrl, {});
--      setFilesPerSource(prev => {
--        const sourceFiles = prev[active] ?? [];
--        // Add to current folder (not root) if navigated
--        return {
--          ...prev,
--          [active]: [
--            ...sourceFiles,
--            { name, type: isImage ? "image" : "text", encrypted, parent: currentFolder }
--          ]
--        };
--      });
--      setEncryptionFileName(null);
--      reset();
--      toast({ title: `${name} encrypted and added successfully.` });
--      console.log(`[SourceTabs] File added: ${name}`, { encrypted });
--    } catch (err) {
--      setEncryptionFileName(null);
--      reset();
--      toast({ title: `Failed to add ${name}`, description: String(err), variant: "destructive" });
--      console.error("[SourceTabs] Encryption failed:", err);
--    }
-+    try {
-+      setIsEncrypting(true);
-+      let encrypted: string;
-+      if (isImage) {
-+        // For image, need to convert dataUrl -> ArrayBuffer
-+        const response = await fetch(dataUrl);
-+        const buf = await response.arrayBuffer();
-+        encrypted = await encryptData(buf);
-+      } else {
-+        // For text, encrypt text directly
-+        // Remove "data:text/plain;base64," prefix if present
-+        let raw = dataUrl;
-+        const prefix = "data:text/plain;base64,";
-+        if (raw.startsWith(prefix)) {
-+          raw = atob(raw.slice(prefix.length));
-+        }
-+        encrypted = await encryptData(raw);
-+      }
-+      setFilesPerSource(prev => {
-+        const sourceFiles = prev[active] ?? [];
-+        return {
-+          ...prev,
-+          [active]: [
-+            ...sourceFiles,
-+            { name, type: isImage ? "image" : "text", encrypted, parent: currentFolder }
-+          ]
-+        };
-+      });
-+      setEncryptionFileName(null);
-+      setIsEncrypting(false);
-+      toast({ title: `${name} encrypted and added successfully.`, variant: "success" });
-+      console.log(`[SourceTabs] File added: ${name}`, { encrypted });
-+    } catch (err) {
-+      setEncryptionFileName(null);
-+      setIsEncrypting(false);
-+      toast({ title: `Failed to add ${name}`, description: String(err), variant: "destructive" });
-+      console.error("[SourceTabs] Encryption failed:", err);
-+    }
+    setIsEncrypting(true);
+    try {
+      let encrypted: string;
+      if (isImage) {
+        // For image, need to convert dataUrl -> ArrayBuffer
+        const response = await fetch(dataUrl);
+        const buf = await response.arrayBuffer();
+        encrypted = await encryptData(buf);
+      } else {
+        // For text, encrypt text directly
+        // Remove "data:text/plain;base64," prefix if present
+        let raw = dataUrl;
+        const prefix = "data:text/plain;base64,";
+        if (raw.startsWith(prefix)) {
+          raw = atob(raw.slice(prefix.length));
+        }
+        encrypted = await encryptData(raw);
+      }
+      setFilesPerSource((prev) => {
+        const sourceFiles = prev[active] ?? [];
+        return {
+          ...prev,
+          [active]: [
+            ...sourceFiles,
+            { name, type: isImage ? "image" : "text", encrypted, parent: currentFolder }
+          ]
+        };
+      });
+      setEncryptionFileName(null);
+      setIsEncrypting(false);
+      toast({ title: `${name} encrypted and added successfully.`, variant: "success" });
+      console.log(`[SourceTabs] File added: ${name}`, { encrypted });
+    } catch (err) {
+      setEncryptionFileName(null);
+      setIsEncrypting(false);
+      toast({ title: `Failed to add ${name}`, description: String(err), variant: "destructive" });
+      console.error("[SourceTabs] Encryption failed:", err);
+    }
   }
 
   function handleAddFolder() {
     if (!folderName.trim()) return;
-    setFilesPerSource(prev => {
+    setFilesPerSource((prev) => {
       const sourceFiles = prev[active] ?? [];
       // Prevent duplicate folder name in same parent
       if (
         sourceFiles.some(
-          f =>
+          (f) =>
             f.type === "folder" &&
             f.name === folderName.trim() &&
             ((currentFolder && f.parent === currentFolder) || (!currentFolder && !f.parent))
@@ -145,8 +116,8 @@ const SourceTabs = () => {
             type: "folder",
             encrypted: "",
             parent: currentFolder,
-          }
-        ]
+          },
+        ],
       };
     });
     setFolderName("");
@@ -154,7 +125,7 @@ const SourceTabs = () => {
   }
 
   function handleDeleteFile(idx: number) {
-    setFilesPerSource(prev => {
+    setFilesPerSource((prev) => {
       const sourceFiles = prev[active] ?? [];
       return {
         ...prev,
@@ -164,7 +135,7 @@ const SourceTabs = () => {
   }
 
   function handleUpdateFile(idx: number, updated: FileEntry) {
-    setFilesPerSource(prev => {
+    setFilesPerSource((prev) => {
       const files = prev[active] ?? [];
       const updatedFiles = files.slice();
       updatedFiles[idx] = updated;
