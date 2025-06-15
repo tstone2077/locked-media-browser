@@ -1,4 +1,3 @@
-
 import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
@@ -73,11 +72,8 @@ const FileGridContent = ({
             if (file.decrypted && (file.type === "image" || file.type === "text")) {
               setMediaViewer({ fileIdx: file.__idx, open: true });
             } else if ((file.type === "image" || file.type === "text")) {
-              toast({
-                title: file.type === "image" ? "Image not decrypted" : "Text file not decrypted",
-                description: `Please decrypt this ${file.type} first to preview it.`,
-                variant: "destructive"
-              });
+              // Attempt to decrypt the file directly
+              onDecrypt(file.__idx);
             }
             // For folders, do nothing (the grid treats folders specially)
           }}
@@ -105,4 +101,3 @@ const FileGridContent = ({
 };
 
 export default FileGridContent;
-
