@@ -1,6 +1,7 @@
+
 import { useNavigate, useLocation } from "react-router-dom";
 import SourceTabs from "@/components/SourceTabs";
-import { ArrowRight, Cog } from "lucide-react";
+import { Cog } from "lucide-react";
 import ConfigModal from "@/components/ConfigModal";
 import { FileVaultProvider } from "@/context/FileVaultContext";
 
@@ -22,8 +23,7 @@ const Index = () => {
             className="bg-cyan-700 hover:bg-cyan-500 transition px-4 py-2 rounded-lg flex items-center gap-2 shadow story-link"
           >
             <Cog size={18} className="inline-block" />
-            Configure
-            <ArrowRight size={18} />
+            Settings
           </button>
         </header>
         <main className="max-w-7xl mx-auto px-6 py-8">
@@ -36,3 +36,4 @@ const Index = () => {
 };
 
 export default Index;
+
