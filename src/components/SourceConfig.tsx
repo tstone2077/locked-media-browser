@@ -289,7 +289,14 @@ type OpenDriveExtra = {
   rootFolder: string;
 };
 
-type SourceConfigWithExtras = SourceConfigType & Partial<OpenDriveExtra>;
+type SourceConfigWithExtras = {
+  name: string;
+  type: "local" | "opendrive";
+  encryption: string;
+  username?: string;
+  password?: string;
+  rootFolder?: string;
+};
 
 const SOURCE_TYPES = [
   { value: "local", label: "Local Storage" },
@@ -329,7 +336,7 @@ const SourceConfig = () => {
     if (!form.name || !form.encryption) return;
     if (form.type === "opendrive" && (!form.username || !form.password || !form.rootFolder)) return;
     // Prepare clean object
-    const cleanForm: any = { ...form };
+    const cleanForm: SourceConfigWithExtras = { ...form };
     if (form.type !== "opendrive") {
       delete cleanForm.username;
       delete cleanForm.password;
@@ -342,7 +349,7 @@ const SourceConfig = () => {
         .forEach((_, i) => removeSource(0));
       updatedSources.forEach(s => addSource(s));
     } else {
-      addSource(cleanForm);
+      addSource(cleanForm as any);
     }
     setEditIdx(null);
     setForm({
@@ -419,15 +426,15 @@ const SourceConfig = () => {
                 )}
                 <span className="font-medium text-green-200">{s.name}</span>
                 <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">
-                  {s.type === "local" ? "LOCAL" : s.type === "opendrive" ? "OPENDRIVE" : s.type.toUpperCase()}
+                  {s.type === "local" ? "LOCAL" : "OPENDRIVE"}
                 </span>
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <Lock size={14} className="inline text-green-300/60" />
                 <span>
                   Uses: <span className="opacity-90">{s.encryption}</span>
-                  {s.type === "opendrive" && (s as any).username && (
-                    <> ({(s as any).username})</>
+                  {s.type === "opendrive" && s.username && (
+                    <> ({s.username})</>
                   )}
                 </span>
               </div>

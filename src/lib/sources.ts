@@ -3,8 +3,12 @@ import { useSessionStorage } from "./session-storage";
 
 export type SourceConfig = {
   name: string;
-  type: "local" | "dataurl";
+  type: "local" | "opendrive";
   encryption: string; // Encryption method name
+  // OpenDrive fields are optional, only present if type is "opendrive"
+  username?: string;
+  password?: string;
+  rootFolder?: string;
 };
 
 const SOURCES_KEY = "sources";
