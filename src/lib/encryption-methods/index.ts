@@ -6,4 +6,6 @@ export type EncryptionMethodConfig = GPGConfig | AES256Config;
 
 export const ENCRYPTION_METHODS = [GPGMethod, AES256Method];
 
-export { GPGConfig, GPGMethod, AES256Config, AES256Method };
+// Use type-only exports for isolatedModules compatibility:
+export type { GPGConfig, AES256Config };
+export { GPGMethod, AES256Method };

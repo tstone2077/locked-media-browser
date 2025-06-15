@@ -180,8 +180,14 @@ const EncryptionConfig = () => {
               <label className="text-sm">Private Key</label>
               <textarea
                 className="w-full mt-1 p-2 rounded bg-[#10151e] border border-cyan-600 h-20"
-                value={form.privateKey ?? ""}
-                onChange={e => setForm(f => ({ ...f, privateKey: e.target.value }))}
+                value={form.type === "gpg" ? (form.privateKey ?? "") : ""}
+                onChange={e =>
+                  setForm(f =>
+                    f.type === "gpg"
+                      ? { ...f, privateKey: e.target.value }
+                      : f
+                  )
+                }
               />
             </div>
           )}

@@ -1,6 +1,5 @@
-
 import { useSessionStorage } from "./session-storage";
-import { SourceConfig } from "./sources";
+import type { SourceConfig } from "./sources";
 
 const SOURCES_KEY = "sources";
 
