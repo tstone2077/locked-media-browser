@@ -14,7 +14,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || "/"}>
         <Routes>
           {/* "/" and "/config" both render Index; Index internally handles the Config modal */}
           <Route path="/" element={<Index />} />
