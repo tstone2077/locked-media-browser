@@ -119,13 +119,46 @@ const EncryptedFileGrid = ({
 
   // Bulk decryption
   async function handleDecryptSelected() {
+    // Only decrypt files that are not yet decrypted (not folders)
+    const fileUpdates: { idx: number; updated: FileEntry }[] = [];
+
     for (const idx of selected) {
-      // Only try to decrypt files that aren't decrypted yet and aren't folders
       const file = files[idx];
       if (file.type !== "folder" && !file.decrypted && file.encrypted) {
-        await handleDecrypt(idx);
+        try {
+          const decryptedBuf = await decryptData(file.encrypted);
+          let content: string = "";
+          if (file.type === "text") {
+            content = new TextDecoder().decode(decryptedBuf);
+          } else if (file.type === "image") {
+            const blob = new Blob([decryptedBuf]);
+            content = await new Promise<string>(resolve => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          }
+          // Debug log:
+          console.log("[handleDecryptSelected] Decrypted", file.name, "type:", file.type, "->", !!content);
+          fileUpdates.push({ idx, updated: { ...file, decrypted: content } });
+        } catch (e: any) {
+          console.error("[handleDecryptSelected] Decryption failed", file.name, e);
+        }
       }
     }
+
+    if (fileUpdates.length > 0) {
+      // Batch update all decrypted files at once
+      setFilesPerSource(prev => {
+        const old = prev[sourceIndex] ?? [];
+        const patched = old.map((entry, idx) => {
+          const patch = fileUpdates.find(fu => fu.idx === idx);
+          return patch ? patch.updated : entry;
+        });
+        return { ...prev, [sourceIndex]: patched };
+      });
+    }
+
     setSelected([]);
     toast({ title: "Decryption done for selected" });
   }
