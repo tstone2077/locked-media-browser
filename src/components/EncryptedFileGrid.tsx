@@ -1,4 +1,3 @@
-
 // This new implementation supports drag-and-drop folder move and checkboxes for selection
 import React, { useState } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
@@ -31,8 +30,14 @@ const EncryptedFileGrid = ({
   const { encryptData, decryptData } = useCrypto(ENCRYPT_PASS);
   const { setFilesPerSource, filesPerSource } = useFileVault();
 
-  // FILTER root
-  const visibleFiles = files.filter(f => !f.parent);
+  // FILTER root, but EXCLUDE folders
+  const visibleFiles = files.filter(f => !f.parent && f.type !== "folder");
+  // Only root-level folders
+  const folderNames = findFolderNames(files).filter(folderName => {
+    // Only folders with no parent (root folders). You can extend to subfolders later.
+    const folderEntry = files.find(f => f.type === "folder" && f.name === folderName);
+    return folderEntry && !folderEntry.parent;
+  });
 
   function handleCheck(idx: number, checked: boolean) {
     setSelected(s => checked ? [...s, idx] : s.filter(i => i !== idx));
@@ -168,6 +173,7 @@ const EncryptedFileGrid = ({
       </div>
 
       <div className="grid gap-8 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 animate-fade-in">
+        {/* Only show FILE grid items (no root folders) */}
         {visibleFiles.map((file, idx) => (
           <FileGridItem
             key={file.name + idx}
@@ -186,7 +192,7 @@ const EncryptedFileGrid = ({
             draggable={file.type !== "folder"}
           />
         ))}
-        {/* Show folder contents inline (1 level only for now) */}
+        {/* Folder containers: show inline contents (1 level only for now) */}
         {folderNames.map(folderName => (
           <div
             key={folderName}
