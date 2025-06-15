@@ -22,31 +22,44 @@ async function exportVault(filesPerSource: Record<number, FileEntry[]>) {
 
   const blob = await zip.generateAsync({ type: 'blob' });
 
-  // Correct feature-detection for showSaveFilePicker (and handle type)
-  if (typeof window !== "undefined" && "showSaveFilePicker" in window) {
-    // @ts-ignore
-    const pickerOpts = {
-      suggestedName: "safebox-vault.zip",
-      types: [
-        {
-          description: "Zip Archive",
-          accept: { "application/zip": [".zip"] }
-        }
-      ]
-    };
-    // @ts-ignore
-    const handle = await window.showSaveFilePicker(pickerOpts);
-    const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-  } else {
-    // fallback: use classic download (still better than nothing)
+  // Refined feature detection and toast for debugging
+  let usedPicker = false;
+  if (
+    typeof window !== "undefined" &&
+    typeof (window as any).showSaveFilePicker === "function"
+  ) {
+    try {
+      // @ts-ignore
+      const pickerOpts = {
+        suggestedName: "safebox-vault.zip",
+        types: [
+          {
+            description: "Zip Archive",
+            accept: { "application/zip": [".zip"] }
+          }
+        ]
+      };
+      // @ts-ignore
+      const handle = await window.showSaveFilePicker(pickerOpts);
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      toast({ title: "File Picker Used", description: "Exported using Save File Picker." });
+      usedPicker = true;
+    } catch (e) {
+      // If user cancels or anything else fails, fallback below
+      toast({ title: "File Picker Cancelled", description: "Falling back to download." });
+    }
+  }
+  if (!usedPicker) {
+    // fallback: use classic download
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "safebox-vault.zip";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 100);
+    toast({ title: "Classic Download Used", description: "Exported using classic download." });
   }
 }
 
