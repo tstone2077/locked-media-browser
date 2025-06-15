@@ -150,6 +150,8 @@ const EncryptedFileGrid = ({
 
   async function handleEncrypt(idx: number) {
     const file = files[idx];
+    // Only encrypt text/image files, skip folders
+    if (file.type === "folder" || !file.decrypted) return;
     try {
       let encrypted: string = "";
       if (file.type === "text" && file.decrypted) {
@@ -160,11 +162,10 @@ const EncryptedFileGrid = ({
         encrypted = await encryptData(buf);
       }
       onUpdateFile(idx, { ...file, decrypted: undefined, encrypted });
-      // --- Show a green toast via shadcn
       toast({
         title: "Encryption successful",
         description: `${file.name} is now encrypted.`,
-        variant: "default", // keeps the green theme, destructive=red
+        variant: "default",
       });
     } catch (e: any) {
       toast({ title: "Encryption failed", description: e.message, variant: "destructive" });
@@ -203,14 +204,14 @@ const EncryptedFileGrid = ({
   // For move menu (list of all folders; could be extended to avoid cyclic move)
   const allFolders = files.filter(f => f.type === "folder").map(f => f.name);
 
-  // Find what file to show (allow opening locked image to show preview/lock)
+  // Only allow passing text/image files to viewer
   const selectedMediaFile = files[mediaViewer.fileIdx];
-  // For locked images, try to show a preview if available (use decrypted or fallback to placeholder)
   const canShowMediaViewer =
     mediaViewer.open &&
     selectedMediaFile &&
     (selectedMediaFile.type === "image" || selectedMediaFile.type === "text");
 
+  // -- updated toast and strict prop typing for MediaViewer --
   // Add a simple preview thumbnail technique for locked images:
   function getThumbnail(file: FileEntry) {
     // If decrypted available, use that.
@@ -352,11 +353,13 @@ const EncryptedFileGrid = ({
           open={mediaViewer.open}
           setOpen={(open: boolean) => setMediaViewer(m => ({ ...m, open }))}
           file={{
-            ...selectedMediaFile,
-            // Always pass decrypted if available, else thumbnail for locked images
+            // Only provide type: "image"|"text" and related props
+            name: selectedMediaFile.name,
+            type: selectedMediaFile.type as "image" | "text",
             decrypted:
               selectedMediaFile.decrypted ||
               (selectedMediaFile.type === "image" ? getThumbnail(selectedMediaFile) : ""),
+            liked: selectedMediaFile.liked,
           }}
           onPrev={() => {
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
