@@ -96,6 +96,10 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
     e.preventDefault();
   }
 
+  // -- NEW: check if we're showing a locked image (i.e., fallback/placeholder image) --
+  const isImageLocked =
+    file.type === "image" && (!file.decrypted || file.decrypted === "/placeholder.svg");
+
   return (
     // Full screen overlay, no padding
     <div
@@ -126,39 +130,57 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
           className="flex flex-1 items-center justify-center w-full h-full"
           style={{ minHeight: 0, minWidth: 0 }}
         >
-          {file.type === "image" && file.decrypted ? (
-            <div
-              className="relative flex items-center justify-center w-full h-full select-none"
-              onWheel={handleWheelImage}
-              onMouseDown={handleMouseDown}
-              onDoubleClick={handleDoubleClick}
-              style={{
-                cursor: zoom > 1 ? (dragging ? "grabbing" : "grab") : "default",
-                userSelect: "none"
-              }}
-            >
-              <img
-                src={file.decrypted}
-                alt={file.name}
-                draggable={false}
-                className="shadow-lg border border-cyan-900/60 bg-black rounded-lg animate-fade-in"
+          {file.type === "image" ? (
+            file.decrypted ? (
+              <div
+                className="relative flex items-center justify-center w-full h-full select-none"
+                onWheel={handleWheelImage}
+                onMouseDown={handleMouseDown}
+                onDoubleClick={handleDoubleClick}
                 style={{
-                  display: "block",
-                  maxWidth: "94vw",
-                  maxHeight: "80vh",
-                  width: "auto",
-                  height: "auto",
-                  // Zoom and pan
-                  transform: `translate(${offset.x}px,${offset.y}px) scale(${zoom})`,
-                  transition: dragging ? "none" : "transform 0.18s cubic-bezier(.66,-0.41,.46,1.36)",
-                  boxShadow: "0 8px 42px 4px #090c2c66"
+                  cursor: zoom > 1 ? (dragging ? "grabbing" : "grab") : "default",
+                  userSelect: "none"
                 }}
-              />
-              {/* Helper overlay for zoom state */}
-              <div className="absolute left-4 bottom-3 bg-black/50 text-cyan-100 rounded px-3 py-1 text-xs select-none pointer-events-none">
-                Zoom: {zoom.toFixed(2)}x &nbsp; | &nbsp; {zoom > 1 ? "Drag to pan, double-click to reset" : "Scroll to zoom"} 
+              >
+                <img
+                  src={file.decrypted}
+                  alt={file.name}
+                  draggable={false}
+                  className={
+                    "shadow-lg border border-cyan-900/60 bg-black rounded-lg animate-fade-in" +
+                    (isImageLocked ? " opacity-60 blur" : "")
+                  }
+                  style={{
+                    display: "block",
+                    maxWidth: "94vw",
+                    maxHeight: "80vh",
+                    width: "auto",
+                    height: "auto",
+                    // Zoom and pan
+                    transform: `translate(${offset.x}px,${offset.y}px) scale(${zoom})`,
+                    transition: dragging ? "none" : "transform 0.18s cubic-bezier(.66,-0.41,.46,1.36)",
+                    boxShadow: "0 8px 42px 4px #090c2c66"
+                  }}
+                />
+                {/* Helper overlay for zoom state */}
+                <div className="absolute left-4 bottom-3 bg-black/50 text-cyan-100 rounded px-3 py-1 text-xs select-none pointer-events-none">
+                  {isImageLocked
+                    ? "Encrypted preview (unlock to view in full quality)"
+                    : `Zoom: ${zoom.toFixed(2)}x | ${zoom > 1 ? "Drag to pan, double-click to reset" : "Scroll to zoom"}`}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center w-full">
+                <img
+                  src="/placeholder.svg"
+                  alt="Locked/Encrypted"
+                  className="w-32 h-32 opacity-70 mb-4"
+                  draggable={false}
+                />
+                <div className="text-cyan-200 text-xl font-semibold">This image is encrypted</div>
+                <div className="mt-2 text-cyan-300 text-sm">Unlock with your password to view.</div>
+              </div>
+            )
           ) : (
             <div className="border border-cyan-600 rounded-md p-4 bg-cyan-900/20 w-full max-w-3xl text-left text-cyan-100 max-h-[65vh] overflow-auto animate-fade-in whitespace-pre-line">
               {file.decrypted || ""}

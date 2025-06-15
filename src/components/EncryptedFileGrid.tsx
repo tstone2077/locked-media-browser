@@ -159,12 +159,15 @@ const EncryptedFileGrid = ({
         const buf = await response.arrayBuffer();
         encrypted = await encryptData(buf);
       }
-      console.log("[EncryptedFileGrid] Encrypted value:", encrypted); // DEBUG
       onUpdateFile(idx, { ...file, decrypted: undefined, encrypted });
-      toast({ title: "Encryption successful" });
+      // --- Show a green toast via shadcn
+      toast({
+        title: "Encryption successful",
+        description: `${file.name} is now encrypted.`,
+        variant: "default", // keeps the green theme, destructive=red
+      });
     } catch (e: any) {
-      console.error("[EncryptedFileGrid] Encryption failed", e); // DEBUG
-      toast({ title: "Encryption failed", description: e.message });
+      toast({ title: "Encryption failed", description: e.message, variant: "destructive" });
     }
   }
 
@@ -199,6 +202,27 @@ const EncryptedFileGrid = ({
 
   // For move menu (list of all folders; could be extended to avoid cyclic move)
   const allFolders = files.filter(f => f.type === "folder").map(f => f.name);
+
+  // Find what file to show (allow opening locked image to show preview/lock)
+  const selectedMediaFile = files[mediaViewer.fileIdx];
+  // For locked images, try to show a preview if available (use decrypted or fallback to placeholder)
+  const canShowMediaViewer =
+    mediaViewer.open &&
+    selectedMediaFile &&
+    (selectedMediaFile.type === "image" || selectedMediaFile.type === "text");
+
+  // Add a simple preview thumbnail technique for locked images:
+  function getThumbnail(file: FileEntry) {
+    // If decrypted available, use that.
+    if (file.decrypted) return file.decrypted;
+    // For images, if possible, derive from encrypted (in real scenario, store thumbnail field)
+    // But if not possible, use a placeholder
+    if (file.type === "image") {
+      // Placeholder thumbnail (could make more advanced, but let's keep it simple for now)
+      return "/placeholder.svg";
+    }
+    return undefined;
+  }
 
   return (
     <div>
@@ -323,12 +347,17 @@ const EncryptedFileGrid = ({
         )}
       </div>
       {/* Media Viewer (outside grid): shows when open */}
-      {mediaViewer.open && files[mediaViewer.fileIdx] && 
-        (files[mediaViewer.fileIdx].type === "image" || files[mediaViewer.fileIdx].type === "text") ? (
+      {canShowMediaViewer ? (
         <MediaViewer
           open={mediaViewer.open}
           setOpen={(open: boolean) => setMediaViewer(m => ({ ...m, open }))}
-          file={files[mediaViewer.fileIdx] as any}
+          file={{
+            ...selectedMediaFile,
+            // Always pass decrypted if available, else thumbnail for locked images
+            decrypted:
+              selectedMediaFile.decrypted ||
+              (selectedMediaFile.type === "image" ? getThumbnail(selectedMediaFile) : ""),
+          }}
           onPrev={() => {
             const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
             if (currentIdx > 0) {
