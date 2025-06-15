@@ -9,20 +9,100 @@ import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/hooks/use-toast";
 
-// Updated exportVault
+// ENCRYPTION for vault metadata
+import { useCrypto } from "@/hooks/useCrypto";
+
+// Utility to get generic file name for index
+function getGenericFileName(idx: number) {
+  return `file-${idx}`;
+}
+
+function getIndexFileName() {
+  return "vault-index.json.enc";
+}
+
 async function exportVault(filesPerSource: Record<number, FileEntry[]>) {
   const zip = new JSZip();
 
-  Object.entries(filesPerSource).forEach(([sourceIdx, files]) => {
+  for (const [sourceIdx, files] of Object.entries(filesPerSource)) {
     const folder = zip.folder(`source-${sourceIdx}`);
-    files.forEach(file => {
-      folder?.file(file.name, file.encrypted);
+    if (!folder) continue;
+
+    if (!files || !files.length) continue;
+
+    // Build index and save generic files
+    const indexData: any[] = [];
+    files.forEach((file, idx) => {
+      const genericName = getGenericFileName(idx);
+      indexData.push({
+        generic: genericName,
+        name: file.name,
+        type: file.type,
+        parent: file.parent,
+      });
+      // Save encrypted payload with generic file name, except for folders (no content)
+      if (file.type !== "folder") {
+        folder.file(genericName, file.encrypted);
+      }
     });
-  });
 
-  const blob = await zip.generateAsync({ type: 'blob' });
+    // Encrypt the metadata index file and store in zip
+    // Use passphrase for WebCrypto AES-GCM (same as file encryption, can be refactored to use user-selected method)
+    const ENCRYPT_PASS = "vault-password";
+    // The useCrypto hook requires React/useState. We'll create our own utility version here, since this runs outside component
+    // Utility function for encryption (adapted from useCrypto)
+    async function indexEncrypt(data: any): Promise<string> {
+      const enc = new TextEncoder();
+      const json = JSON.stringify(data);
+      // Derive key
+      const salt = enc.encode("filevault-static-salt");
+      const keyMaterial = await window.crypto.subtle.importKey(
+        "raw",
+        enc.encode(ENCRYPT_PASS),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+      const key = await window.crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt,
+          iterations: 100000,
+          hash: "SHA-256",
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+      // Encrypt
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        key,
+        enc.encode(json)
+      );
+      // Export as iv:ciphertext, both base64
+      function base64(buf: ArrayBuffer) {
+        const bytes = new Uint8Array(buf);
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode.apply(
+            null,
+            bytes.subarray(i, i + chunkSize) as unknown as number[]
+          );
+        }
+        return btoa(binary);
+      }
+      return base64(iv) + ":" + base64(ciphertext);
+    }
+    const encryptedIndex = await indexEncrypt(indexData);
+    folder.file(getIndexFileName(), encryptedIndex);
+  }
 
-  // Refined feature detection and toast for debugging
+  const blob = await zip.generateAsync({ type: "blob" });
+
   let usedPicker = false;
   if (
     typeof window !== "undefined" &&
@@ -35,35 +115,89 @@ async function exportVault(filesPerSource: Record<number, FileEntry[]>) {
         types: [
           {
             description: "Zip Archive",
-            accept: { "application/zip": [".zip"] }
-          }
-        ]
+            accept: { "application/zip": [".zip"] },
+          },
+        ],
       };
       // @ts-ignore
       const handle = await window.showSaveFilePicker(pickerOpts);
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      toast({ title: "File Picker Used", description: "Exported using Save File Picker." });
+      toast({
+        title: "File Picker Used",
+        description: "Exported using Save File Picker.",
+      });
       usedPicker = true;
     } catch (e) {
-      // If user cancels or anything else fails, fallback below
-      toast({ title: "File Picker Cancelled", description: "Falling back to download." });
+      toast({
+        title: "File Picker Cancelled",
+        description: "Falling back to download.",
+      });
     }
   }
   if (!usedPicker) {
-    // fallback: use classic download
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "safebox-vault.zip";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 100);
-    toast({ title: "Classic Download Used", description: "Exported using classic download." });
+    toast({
+      title: "Classic Download Used",
+      description: "Exported using classic download.",
+    });
   }
 }
 
-function importVault(file: File, setFilesPerSource: (updater: (old: Record<number, FileEntry[]>) => Record<number, FileEntry[]>) => void) {
+// Utility decrypt - same logic as above, but for reading index on import.
+async function indexDecrypt(encrypted: string): Promise<any[]> {
+  const dec = new TextDecoder();
+  // Key params same as in export
+  const ENCRYPT_PASS = "vault-password";
+  const salt = new TextEncoder().encode("filevault-static-salt");
+  const keyMaterial = await window.crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(ENCRYPT_PASS),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+  const key = await window.crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+  // Split iv:ciphertext
+  if (!encrypted.includes(":")) throw new Error("Malformed encrypted index.");
+  const [ivB64, ctB64] = encrypted.split(":");
+  function fromB64(b64: string): Uint8Array {
+    return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  }
+  const iv = fromB64(ivB64);
+  const ct = fromB64(ctB64);
+  const decryptedBuf = await window.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ct
+  );
+  const json = dec.decode(decryptedBuf);
+  return JSON.parse(json);
+}
+
+function importVault(
+  file: File,
+  setFilesPerSource: (
+    updater: (old: Record<number, FileEntry[]>) => Record<number, FileEntry[]>
+  ) => void
+) {
   const reader = new FileReader();
   reader.onload = async () => {
     const arrayBuffer = reader.result as ArrayBuffer;
@@ -71,57 +205,76 @@ function importVault(file: File, setFilesPerSource: (updater: (old: Record<numbe
       const zip = await JSZip.loadAsync(arrayBuffer);
       const newFiles: Record<number, FileEntry[]> = {};
 
-      const filePromises: Promise<void>[] = [];
+      // Pass 1: find all index metadata files: source-idx/vault-index.json.enc
+      const indexFileEntries: { sourceIdx: number; zipEntry: JSZip.JSZipObject; folderEntries: JSZip.JSZipObject[] }[] = [];
       zip.forEach((relativePath, zipEntry) => {
-        // Expect format: source-INDEX/filename... or source-INDEX/folder1/folder2/filename...
-        const match = /^source-(\d+)\/(.+)$/.exec(relativePath);
-        if (!zipEntry.dir && match) {
-          const sourceIdx = parseInt(match[1], 10);
-          const fullPath = match[2]; // could be e.g., "subfolder1/Image-xxx.png"
-          // Get folder path and filename
-          let parent: string | undefined = undefined;
-          let fileName = fullPath;
-          if (fullPath.includes("/")) {
-            const parts = fullPath.split("/");
-            fileName = parts[parts.length - 1];
-            if (parts.length > 1) {
-              parent = parts[parts.length - 2]; // immediate parent folder
+        const matchIdxFile = /^source-(\d+)\/vault-index\.json\.enc$/.exec(relativePath);
+        if (matchIdxFile) {
+          const sourceIdx = parseInt(matchIdxFile[1], 10);
+          // Gather also all entries in this folder (except index file)
+          const filesInFolder: JSZip.JSZipObject[] = [];
+          zip.forEach((path2, zipEntry2) => {
+            const folderPrefix = `source-${sourceIdx}/`;
+            if (
+              path2.startsWith(folderPrefix) &&
+              path2 !== `source-${sourceIdx}/vault-index.json.enc`
+            ) {
+              filesInFolder.push(zipEntry2);
             }
-          }
-          // Detect type
-          const ext = fileName.split('.').pop()?.toLowerCase();
-          let type: "image" | "text" | "folder" = "text";
-          if (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".gif") || fileName.endsWith('.webp')) {
-            type = "image";
-          } else if (!fileName.includes('.')) {
-            type = "folder";
-          } else {
-            type = "text";
-          }
-          // Folders are just entries with type 'folder', but backward compat needed
-          filePromises.push(
-            zipEntry.async("text").then(content => {
-              if (!newFiles[sourceIdx]) newFiles[sourceIdx] = [];
-              newFiles[sourceIdx].push({
-                name: fileName,
-                type,
-                encrypted: type === "folder" ? "" : content,
-                parent,
-              });
-            })
-          );
+          });
+          indexFileEntries.push({ sourceIdx, zipEntry, folderEntries: filesInFolder });
         }
       });
 
-      await Promise.all(filePromises);
-      setFilesPerSource(prev => {
-        // Merge: overwrite only the affected sources, preserve others
-        return {
-          ...prev,
-          ...newFiles,
-        };
+      // For each found source, process files using the index
+      for (const { sourceIdx, zipEntry, folderEntries } of indexFileEntries) {
+        const indexEnc = await zipEntry.async("text");
+        const metaArr = await indexDecrypt(indexEnc);
+
+        // Map generic fileName -> zipEntry for this folder
+        const fileMap: Record<string, JSZip.JSZipObject> = {};
+        for (const fe of folderEntries) {
+          // Only files, no dir
+          if (!fe.dir) {
+            const fname = fe.name.replace(/^source-\d+\//, ""); // Remove path prefix to get generic name
+            fileMap[fname] = fe;
+          }
+        }
+
+        const sourceFiles: FileEntry[] = [];
+
+        for (const meta of metaArr) {
+          // For folders, no encrypted file needed, else map generic name to actual encrypted content
+          if (meta.type === "folder") {
+            sourceFiles.push({
+              name: meta.name,
+              type: "folder",
+              encrypted: "",
+              parent: meta.parent,
+            });
+          } else {
+            const zipObj = fileMap[meta.generic];
+            const encPayload =
+              zipObj && !zipObj.dir ? await zipObj.async("text") : "";
+            sourceFiles.push({
+              name: meta.name,
+              type: meta.type,
+              encrypted: encPayload,
+              parent: meta.parent,
+            });
+          }
+        }
+        newFiles[sourceIdx] = sourceFiles;
+      }
+
+      setFilesPerSource((prev) => ({
+        ...prev,
+        ...newFiles,
+      }));
+      toast({
+        title: "Import successful!",
+        description: "Imported files are now visible below.",
       });
-      toast({ title: "Import successful!", description: "Imported files are now visible below." });
     } catch (e) {
       alert("Error unpacking vault zip: " + (e as Error).message);
     }
@@ -342,7 +495,13 @@ const SourceConfig = () => {
 };
 
 // Factor out dialog so hook call gets latest methods *on each render*
-function AddEditSourceDialog({ form, setForm, editIdx, handleAddOrSave, handleCancel }: {
+function AddEditSourceDialog({
+  form,
+  setForm,
+  editIdx,
+  handleAddOrSave,
+  handleCancel,
+}: {
   form: SourceConfigType;
   setForm: React.Dispatch<React.SetStateAction<SourceConfigType>>;
   editIdx: number | null;
