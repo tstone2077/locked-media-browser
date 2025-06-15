@@ -36,6 +36,41 @@ const FileGridContent = ({
   onDragEnd,
   setMediaViewer,
 }: FileGridContentProps) => {
+  // Helper to validate encrypted string
+  function isValidCiphertext(ciphertext: string) {
+    if (typeof ciphertext !== "string") return false;
+    if (!ciphertext.includes(":")) return false;
+    const [iv, ct] = ciphertext.split(":");
+    return Boolean(iv && ct);
+  }
+
+  // Enhanced direct decryption handler with toast feedback
+  const handleDecrypt = async (file: any) => {
+    try {
+      if (!file.encrypted || !isValidCiphertext(file.encrypted)) {
+        toast({
+          title: "Decryption Error",
+          description: "File missing or malformed ciphertext.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Attempt decryption
+      await onDecrypt(file.__idx);
+      toast({
+        title: "File decrypted!",
+        description: `"${file.name}" successfully decrypted.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast({
+        title: "Decryption Failed",
+        description: (err as Error)?.message || "Failed to decrypt the file.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="grid gap-8 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 animate-fade-in">
       {folders.map(folder => (
@@ -67,15 +102,15 @@ const FileGridContent = ({
         <div
           key={file.name + file.__idx}
           className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
-          onClick={() => {
-            // If file is image or text and decrypted, open preview
-            if (file.decrypted && (file.type === "image" || file.type === "text")) {
-              setMediaViewer({ fileIdx: file.__idx, open: true });
-            } else if ((file.type === "image" || file.type === "text")) {
-              // Attempt to decrypt the file directly
-              onDecrypt(file.__idx);
+          onClick={async () => {
+            // Only handle files, not folders
+            if (file.type === "image" || file.type === "text") {
+              if (file.decrypted) {
+                setMediaViewer({ fileIdx: file.__idx, open: true });
+              } else {
+                await handleDecrypt(file);
+              }
             }
-            // For folders, do nothing (the grid treats folders specially)
           }}
         >
           <FileGridItem
@@ -88,7 +123,7 @@ const FileGridContent = ({
               if (target) setCurrentPath([...currentPath, target]);
             }}
             onDelete={() => onDeleteFile(file.__idx)}
-            onDecrypt={() => onDecrypt(file.__idx)}
+            onDecrypt={() => handleDecrypt(file)}
             onEncrypt={() => onEncrypt(file.__idx)}
             onDragStart={e => onDragStart(e, file.__idx)}
             draggable={file.type !== "folder"}
