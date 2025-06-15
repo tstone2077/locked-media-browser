@@ -1,6 +1,6 @@
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import EncryptionConfig from "@/components/EncryptionConfig";
 import SourceConfig from "@/components/SourceConfig";
 import { useEncryptionMethods } from "@/lib/encryption";
@@ -30,6 +30,10 @@ export default function ConfigModal() {
         className="max-w-4xl w-full p-0 bg-[#181E29] border border-green-800/[0.6] shadow-2xl"
         onInteractOutside={handleClose}
       >
+        {/* Visually hidden accessible title */}
+        <DialogTitle>
+          <span className="sr-only">Configuration Modal</span>
+        </DialogTitle>
         <button
           className="absolute right-4 top-4 text-green-300 hover:text-green-100 transition p-2 rounded focus:outline-none"
           aria-label="Close"
