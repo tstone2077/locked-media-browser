@@ -1,4 +1,3 @@
-
 import { useSources } from "@/lib/sources";
 import EncryptedFileGrid from "./EncryptedFileGrid";
 import { useState } from "react";
@@ -8,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAsyncEncryption } from "@/hooks/useAsyncEncryption";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
+import { toast } from "@/hooks/use-toast";
 
 const initialFilesPerSource: Record<number, FileEntry[]> = {};
 
