@@ -2,7 +2,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import EncryptionConfig from "@/components/EncryptionConfig";
-import SourceConfig from "@/components/SourceConfig";
+import SourceConfigPanel from "@/components/SourceConfig";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { useMemo } from "react";
 import { X } from "lucide-react";
@@ -53,7 +53,7 @@ export default function ConfigModal() {
               Data Sources
             </h2>
             {/* the key ensures SourceConfig re-mounts when methods change */}
-            <SourceConfig key={methodsKey} />
+            <SourceConfigPanel key={methodsKey} />
           </section>
         </div>
       </DialogContent>

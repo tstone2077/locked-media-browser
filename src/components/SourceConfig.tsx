@@ -9,7 +9,6 @@ import JSZip from "jszip";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/hooks/use-toast";
-
 // ENCRYPTION for vault metadata
 import { useCrypto } from "@/hooks/useCrypto";
 import SourceConfigLocal from "./SourceConfigLocal";
@@ -306,7 +305,7 @@ const SOURCE_TYPES = [
   { value: "opendrive", label: "OpenDrive" },
 ];
 
-const SourceConfig = () => {
+const SourceConfigPanel = () => {
   const { sources, addSource, removeSource } = useSources();
   const { filesPerSource, setFilesPerSource } = useFileVault();
   const [showAdd, setShowAdd] = useState(false);
@@ -604,4 +603,4 @@ const SourceConfig = () => {
   );
 };
 
-export default SourceConfig;
+export default SourceConfigPanel;
