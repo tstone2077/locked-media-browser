@@ -1,4 +1,3 @@
-
 /**
  * Hook that provides encrypt/decrypt file utilities using native Web Crypto API
  * Uses AES-GCM for simplicity, base64 for output
@@ -15,7 +14,13 @@ function base64FromBuf(buf: ArrayBuffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
 function bufFromBase64(base64: string) {
-  return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  // Defensive: only allow valid base64
+  try {
+    return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  } catch (e) {
+    console.error("[useCrypto] bufFromBase64: invalid base64!", base64);
+    throw new Error("Invalid base64 encoding while decoding encrypted data.");
+  }
 }
 
 export function useCrypto(passphrase: string) {
@@ -68,7 +73,13 @@ export function useCrypto(passphrase: string) {
   async function decryptData(cipher: string) {
     setProgress(0);
     try {
+      if (!cipher || typeof cipher !== "string" || !cipher.includes(":")) {
+        throw new Error("Encrypted value must be valid and contain ':' separator");
+      }
       const [ivB64, ctB64] = cipher.split(":");
+      if (!ivB64 || !ctB64) {
+        throw new Error("Malformed encrypted value: missing iv or ciphertext");
+      }
       const iv = bufFromBase64(ivB64);
       const ct = bufFromBase64(ctB64);
       const key = await getKey();
@@ -80,7 +91,7 @@ export function useCrypto(passphrase: string) {
       setProgress(100);
       return decrypted;
     } catch (err) {
-      console.error("[useCrypto] decryptData error", err); // DEBUG
+      console.error("[useCrypto] decryptData error", err, cipher); // DEBUG
       throw err;
     }
   }
@@ -91,4 +102,3 @@ export function useCrypto(passphrase: string) {
     progress,
   };
 }
-

@@ -121,11 +121,29 @@ const EncryptedFileGrid = ({
   async function handleDecryptSelected() {
     // Only decrypt files that are not yet decrypted (not folders)
     const fileUpdates: { idx: number; updated: FileEntry }[] = [];
+    let errorCount = 0;
 
     for (const idx of selected) {
       const file = files[idx];
+      // Defensive: skip folders, already decrypted, or missing encrypted field
       if (file.type !== "folder" && !file.decrypted && file.encrypted) {
+        // Check format defensive before decrypt
+        if (
+          typeof file.encrypted !== "string" ||
+          !file.encrypted.includes(":")
+        ) {
+          toast({
+            title: `Skipped "${file.name}" - encrypted data malformed`,
+            description: "File will not be decrypted.",
+            variant: "destructive"
+          });
+          console.warn("[handleDecryptSelected] Skipping file (bad encrypted field):", file);
+          errorCount++;
+          continue;
+        }
         try {
+          // Log value for debug
+          console.debug("[handleDecryptSelected] Decrypting", file.name, "encrypted=", file.encrypted);
           const decryptedBuf = await decryptData(file.encrypted);
           let content: string = "";
           if (file.type === "text") {
@@ -138,10 +156,14 @@ const EncryptedFileGrid = ({
               reader.readAsDataURL(blob);
             });
           }
-          // Debug log:
-          console.log("[handleDecryptSelected] Decrypted", file.name, "type:", file.type, "->", !!content);
           fileUpdates.push({ idx, updated: { ...file, decrypted: content } });
         } catch (e: any) {
+          errorCount++;
+          toast({
+            title: `Failed to decrypt "${file.name}"`,
+            description: e?.message || "Unknown error",
+            variant: "destructive"
+          });
           console.error("[handleDecryptSelected] Decryption failed", file.name, e);
         }
       }
@@ -160,7 +182,12 @@ const EncryptedFileGrid = ({
     }
 
     setSelected([]);
-    toast({ title: "Decryption done for selected" });
+    if (fileUpdates.length > 0) {
+      toast({ title: `Decryption done for ${fileUpdates.length} file(s)` });
+    } else if (errorCount === 0) {
+      // No files selected
+      toast({ title: "No files to decrypt" });
+    }
   }
 
   // Bulk delete (extracted from previous button, not inline anymore)
