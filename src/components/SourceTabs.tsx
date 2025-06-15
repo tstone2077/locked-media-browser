@@ -70,10 +70,20 @@ const SourceTabs = () => {
   // Handle drag events on top-level container
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
+    if (isInternalVaultDrag(e)) {
+      // Prevent showing overlay for internal vault drag;
+      setIsDragOver(false);
+      return;
+    }
     if (!isDragOver) setIsDragOver(true);
   }
   function handleDragEnter(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
+    if (isInternalVaultDrag(e)) {
+      // Prevent showing overlay for internal vault drag;
+      setIsDragOver(false);
+      return;
+    }
     dragTargetCount.current += 1;
     setIsDragOver(true);
   }
