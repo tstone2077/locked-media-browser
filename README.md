@@ -71,3 +71,11 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Deploying to static.app
+
+This project is preconfigured to build with GitHub Actions and is compatible with static.app:
+
+1. The `.github/workflows/deploy.yml` action builds the project and outputs to `dist/` on every push to `main`.
+2. Connect your GitHub repo to [static.app](https://static.app/) and specify the `dist` folder as your publish directory in the static.app dashboard.
+3. Merging/pushing to `main` will trigger a fresh build for deployment.
