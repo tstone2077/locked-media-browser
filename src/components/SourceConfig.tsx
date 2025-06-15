@@ -8,25 +8,45 @@ import JSZip from "jszip";
 import { useFileVault, FileEntry } from "@/context/FileVaultContext";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-function exportVault(filesPerSource: Record<number, FileEntry[]>) {
+// Updated exportVault
+async function exportVault(filesPerSource: Record<number, FileEntry[]>) {
   const zip = new JSZip();
 
   Object.entries(filesPerSource).forEach(([sourceIdx, files]) => {
     const folder = zip.folder(`source-${sourceIdx}`);
     files.forEach(file => {
-      // Save encrypted file content, retain original file name
       folder?.file(file.name, file.encrypted);
     });
   });
 
-  zip.generateAsync({ type: 'blob' }).then(blob => {
+  const blob = await zip.generateAsync({ type: 'blob' });
+  // Check for browser file picker support
+  // @ts-ignore
+  if (window.showSaveFilePicker) {
+    // @ts-ignore
+    const pickerOpts = {
+      suggestedName: "safebox-vault.zip",
+      types: [
+        {
+          description: "Zip Archive",
+          accept: { "application/zip": [".zip"] }
+        }
+      ]
+    };
+    // @ts-ignore
+    const handle = await window.showSaveFilePicker(pickerOpts);
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  } else {
+    // fallback: use classic download (still better than nothing)
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "safebox-vault.zip";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 100);
-  });
+  }
 }
 
 function importVault(file: File, setFilesPerSource: (updater: (old: Record<number, FileEntry[]>) => Record<number, FileEntry[]>) => void) {

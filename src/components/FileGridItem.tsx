@@ -1,4 +1,3 @@
-
 import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,7 +7,7 @@ import { FolderPlus, FilePlus, Lock, Image as ImageIcon, Trash2, Folder, Move, U
 type FileGridItemProps = {
   file: FileEntry;
   checked: boolean;
-  onCheck: (checked: boolean) => void;
+  onCheck: (checked: boolean, event?: React.MouseEvent) => void;
   onMove?: () => void;
   onDelete?: () => void;
   onDecrypt?: () => void;
@@ -17,6 +16,7 @@ type FileGridItemProps = {
   onDrop?: (file: FileEntry) => void;
   onDragOver?: (e: React.DragEvent) => void;
   draggable?: boolean;
+  checkboxClassName?: string;
 };
 
 export const FileGridItem: React.FC<FileGridItemProps> = ({
@@ -31,6 +31,7 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
   onDrop,
   onDragOver,
   draggable,
+  checkboxClassName = "",
 }) => {
   return (
     <ContextMenu>
@@ -49,7 +50,13 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
           onDragOver={onDragOver}
         >
           {/* Checkbox */}
-          <Checkbox checked={checked} onCheckedChange={c => onCheck(!!c)} className="absolute left-2 top-2 z-20" />
+          <span className={`absolute left-2 top-2 z-20 ${checkboxClassName}`}>
+            <Checkbox
+              checked={checked}
+              onClick={e => e.stopPropagation()}
+              onCheckedChange={c => onCheck(!!c, (window.event || undefined) as any)}
+            />
+          </span>
 
           {/* Icon/preview */}
           <div className="mb-2">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
@@ -6,7 +5,7 @@ import { toast } from "@/hooks/use-toast";
 import { useCrypto } from "@/hooks/useCrypto";
 import { Button } from "@/components/ui/button";
 import { useFileVault } from "@/context/FileVaultContext";
-import { Folder, ChevronLeft } from "lucide-react";
+import { Folder, ChevronLeft, Trash2 } from "lucide-react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import MediaViewer from "./MediaViewer";
 
@@ -85,7 +84,10 @@ const EncryptedFileGrid = ({
     ];
   }
 
-  function handleCheck(idx: number, checked: boolean) {
+  function handleCheck(idx: number, checked: boolean, event?: React.MouseEvent) {
+    if (event) {
+      event.stopPropagation();
+    }
     setSelected(s => checked ? [...s, idx] : s.filter(i => i !== idx));
   }
 
@@ -232,7 +234,7 @@ const EncryptedFileGrid = ({
         {selected.length > 0 && (
           <>
             <Button variant="destructive" onClick={handleDeleteSelected}>
-              Delete Selected
+              <Trash2 className="w-4 h-4" />
             </Button>
             {allFolders.length > 0 && (
               <div className="relative">
@@ -259,20 +261,28 @@ const EncryptedFileGrid = ({
           <div
             key={folder.name + (folder as any).__idx}
             className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
-            onClick={() => setCurrentPath([...currentPath, folder.name])}
+            onClick={e => {
+              if (
+                (e.target as HTMLElement).closest(".skip-folder-open")
+              ) {
+                return;
+              }
+              setCurrentPath([...currentPath, folder.name]);
+            }}
             onDrop={e => { e.preventDefault(); onDropOnFolder(folder.name); }}
             onDragOver={e => e.preventDefault()}
           >
             <FileGridItem
               file={folder}
               checked={selected.includes((folder as any).__idx)}
-              onCheck={checked => handleCheck((folder as any).__idx, checked)}
+              onCheck={(checked, e) => handleCheck((folder as any).__idx, checked, e as any)}
               onMove={() => null}
               onDelete={() => onDeleteFile((folder as any).__idx)}
               onDecrypt={() => null}
               onEncrypt={() => null}
               onDragStart={e => onDragStart(e, (folder as any).__idx)}
               draggable={false}
+              checkboxClassName="skip-folder-open"
             />
           </div>
         ))}
@@ -289,7 +299,7 @@ const EncryptedFileGrid = ({
             <FileGridItem
               file={file}
               checked={selected.includes(file.__idx)}
-              onCheck={checked => handleCheck(file.__idx, checked)}
+              onCheck={(checked, e) => handleCheck(file.__idx, checked, e as any)}
               onMove={() => {
                 if (!allFolders.length) return;
                 const target = prompt("Move to which folder?", allFolders[0]);
@@ -300,6 +310,7 @@ const EncryptedFileGrid = ({
               onEncrypt={() => handleEncrypt(file.__idx)}
               onDragStart={e => onDragStart(e, file.__idx)}
               draggable={file.type !== "folder"}
+              checkboxClassName=""
             />
           </div>
         )}
