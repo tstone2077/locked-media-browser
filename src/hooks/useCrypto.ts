@@ -1,4 +1,3 @@
-
 /**
  * Hook that provides encrypt/decrypt file utilities using native Web Crypto API
  * Uses AES-GCM for simplicity, base64 for output
@@ -11,9 +10,18 @@ const TEXT_DECODER = new TextDecoder();
 function randomIv() {
   return window.crypto.getRandomValues(new Uint8Array(12));
 }
+
+// CHUNKED base64 encoder for large buffers to avoid stack overflow
 function base64FromBuf(buf: ArrayBuffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunkSize = 0x8000; // 32k
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize) as unknown as number[]);
+  }
+  return btoa(binary);
 }
+
 function bufFromBase64(base64: string) {
   // Defensive: only allow valid base64
   try {
