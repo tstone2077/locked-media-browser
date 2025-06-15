@@ -11,6 +11,8 @@ import { toast } from "@/hooks/use-toast";
 
 // ENCRYPTION for vault metadata
 import { useCrypto } from "@/hooks/useCrypto";
+import SourceConfigLocal from "./SourceConfigLocal";
+import SourceConfigOpenDrive from "./SourceConfigOpenDrive";
 
 // Utility to get generic file name for index
 function getGenericFileName(idx: number) {
@@ -332,7 +334,6 @@ const SourceConfig = () => {
     });
   }
 
-  // New: Try authenticating to OpenDrive before saving the source
   async function verifyOpenDriveConnection(form: SourceConfigWithExtras): Promise<null | string> {
     if (form.type !== "opendrive" || !form.username || !form.password || !form.rootFolder) return null;
     try {
@@ -448,6 +449,9 @@ const SourceConfig = () => {
       e.target.value = ""; // Reset for future imports
     }
   }
+
+  // For encryption method choices
+  const { methods } = useEncryptionMethods();
 
   return (
     <div>
@@ -571,14 +575,25 @@ const SourceConfig = () => {
       </ul>
       {/* ADD/EDIT SOURCE FORM */}
       {showAdd ? (
-        <AddEditSourceDialog
-          key={`add-edit-${editIdx !== null ? editIdx : "add"}`}
-          form={form}
-          setForm={setForm}
-          editIdx={editIdx}
-          handleAddOrSave={handleAddOrSave}
-          handleCancel={handleCancel}
-        />
+        form.type === "opendrive" ? (
+          <SourceConfigOpenDrive
+            form={form}
+            setForm={setForm}
+            editIdx={editIdx}
+            handleAddOrSave={handleAddOrSave}
+            handleCancel={handleCancel}
+            encryptionMethods={methods}
+          />
+        ) : (
+          <SourceConfigLocal
+            form={form}
+            setForm={setForm}
+            editIdx={editIdx}
+            handleAddOrSave={handleAddOrSave}
+            handleCancel={handleCancel}
+            encryptionMethods={methods}
+          />
+        )
       ) : (
         <Button variant="outline" onClick={() => setShowAdd(true)} className="w-full mt-2 text-green-400 border-green-500 flex gap-2">
           <HardDrive size={16} /> Add Data Source
@@ -587,135 +602,5 @@ const SourceConfig = () => {
     </div>
   );
 };
-
-// DIALOG COMPONENT
-function AddEditSourceDialog({
-  form,
-  setForm,
-  editIdx,
-  handleAddOrSave,
-  handleCancel,
-}: {
-  form: SourceConfigWithExtras;
-  setForm: React.Dispatch<React.SetStateAction<SourceConfigWithExtras>>;
-  editIdx: number | null;
-  handleAddOrSave: () => void;
-  handleCancel: () => void;
-}) {
-  const { methods } = useEncryptionMethods();
-
-  const typeIsOpenDrive = form.type === "opendrive";
-
-  return (
-    <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
-      <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
-        <HardDrive className="mr-2" />{" "}
-        {editIdx !== null
-          ? form.type === "local"
-            ? "Edit Local Storage Source"
-            : "Edit OpenDrive Source"
-          : form.type === "local"
-            ? "New Local Storage Source"
-            : "New OpenDrive Source"}
-      </div>
-      {/* Field order: TYPE, then NAME, then ENCRYPTION */}
-      <div className="mb-2">
-        <label className="text-sm block mb-1">Type</label>
-        <ToggleGroup
-          type="single"
-          value={form.type}
-          onValueChange={v => {
-            if (!v) return;
-            setForm(f => ({
-              ...f,
-              type: v as "local" | "opendrive"
-            }));
-          }}
-          className="mb-2"
-        >
-          {SOURCE_TYPES.map(opt => (
-            <ToggleGroupItem
-              key={opt.value}
-              value={opt.value}
-              className={
-                "px-4 py-2 rounded-xl data-[state=on]:bg-green-700 data-[state=on]:text-white data-[state=on]:border-green-400 border border-green-600 mx-0.5 " +
-                (form.type === opt.value ? "ring-2 ring-green-400" : "")
-              }
-            >
-              {opt.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
-      <div className="mb-2">
-        <label className="text-sm">Name</label>
-        <input
-          className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
-          value={form.name}
-          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          autoFocus
-        />
-      </div>
-      <div className="mb-2">
-        <label className="text-sm">Encryption Method</label>
-        <select
-          className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
-          value={form.encryption}
-          onChange={e => setForm(f => ({ ...f, encryption: e.target.value }))}
-        >
-          <option value="">Choose...</option>
-          {methods.map((m, idx) => (
-            <option key={m.name + idx} value={m.name}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      {typeIsOpenDrive && (
-        <>
-          <div className="mb-2">
-            <label className="text-sm">OpenDrive Username</label>
-            <input
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
-              value={form.username || ""}
-              onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
-              autoFocus={false}
-            />
-          </div>
-          <div className="mb-2">
-            <label className="text-sm">OpenDrive Password</label>
-            <input
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
-              type="password"
-              value={form.password || ""}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              autoFocus={false}
-            />
-          </div>
-          <div className="mb-2">
-            <label className="text-sm">Root Folder (e.g. / or /Vault, or a Folder ID)</label>
-            <input
-              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
-              value={form.rootFolder || ""}
-              onChange={e => setForm(f => ({ ...f, rootFolder: e.target.value }))}
-              autoFocus={false}
-            />
-          </div>
-        </>
-      )}
-      <div className="flex justify-end space-x-2 mt-3">
-        <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
-        <Button
-          variant="default"
-          className="bg-green-700 hover:bg-green-500"
-          onClick={handleAddOrSave}
-          disabled={form.type === "opendrive" && (!form.username || !form.password || !form.rootFolder)}
-        >
-          {editIdx !== null ? "Save" : "Add"}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export default SourceConfig;
