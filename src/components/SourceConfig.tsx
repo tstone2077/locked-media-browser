@@ -7,6 +7,8 @@ import type { SourceConfig } from "@/lib/sources/index";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { LocalSource } from "@/lib/sources/LocalSource";
+import { OpenDriveSource } from "@/lib/sources/OpenDriveSource";
 
 // Simple form type for editing
 type SourceConfigForm = {
@@ -94,6 +96,17 @@ const SourceConfigPanel = () => {
 
   const { methods } = useEncryptionMethods();
 
+  // Create temporary source instances to get their config components
+  const localSource = new LocalSource({ name: "", type: "local", encryption: "" });
+  const opendriveSource = new OpenDriveSource({ 
+    name: "", 
+    type: "opendrive", 
+    encryption: "", 
+    username: "", 
+    password: "", 
+    rootFolder: "" 
+  });
+
   return (
     <div>
       <ul className="space-y-4 mb-6">
@@ -143,7 +156,7 @@ const SourceConfigPanel = () => {
         })}
       </ul>
 
-      {/* ADD/EDIT SOURCE FORM - Now render the config component from the source factory */}
+      {/* ADD/EDIT SOURCE FORM */}
       {showAdd && (
         <div>
           {/* Type selector */}
@@ -161,39 +174,23 @@ const SourceConfigPanel = () => {
           
           {/* Render the appropriate config component based on type */}
           {form.type === "local" ? (
-            // We need to create a temporary LocalSource instance to get its ConfigComponent
-            (() => {
-              const { LocalSource } = require("@/lib/sources");
-              const tempSource = new LocalSource({ name: "", type: "local", encryption: "" });
-              const ConfigComponent = tempSource.ConfigComponent;
-              return (
-                <ConfigComponent
-                  form={form}
-                  setForm={setForm}
-                  editIdx={editIdx}
-                  handleAddOrSave={handleAddOrSave}
-                  handleCancel={handleCancel}
-                  encryptionMethods={methods}
-                />
-              );
-            })()
+            <localSource.ConfigComponent
+              form={form}
+              setForm={setForm}
+              editIdx={editIdx}
+              handleAddOrSave={handleAddOrSave}
+              handleCancel={handleCancel}
+              encryptionMethods={methods}
+            />
           ) : (
-            // Same for OpenDrive
-            (() => {
-              const { OpenDriveSource } = require("@/lib/sources");
-              const tempSource = new OpenDriveSource({ name: "", type: "opendrive", encryption: "", username: "", password: "", rootFolder: "" });
-              const ConfigComponent = tempSource.ConfigComponent;
-              return (
-                <ConfigComponent
-                  form={form}
-                  setForm={setForm}
-                  editIdx={editIdx}
-                  handleAddOrSave={handleAddOrSave}
-                  handleCancel={handleCancel}
-                  encryptionMethods={methods}
-                />
-              );
-            })()
+            <opendriveSource.ConfigComponent
+              form={form}
+              setForm={setForm}
+              editIdx={editIdx}
+              handleAddOrSave={handleAddOrSave}
+              handleCancel={handleCancel}
+              encryptionMethods={methods}
+            />
           )}
         </div>
       )}
