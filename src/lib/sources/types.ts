@@ -40,6 +40,7 @@ export interface ISource {
   listdir(path: string): Promise<FileInfo[]>;
   read(path: string): Promise<string | ArrayBuffer>;
   write(path: string, content: string | ArrayBuffer): Promise<void>;
+  mkdir(path: string): Promise<void>;
   
   // Validation
   validateConfig(config: Record<string, any>): Promise<string | null>;

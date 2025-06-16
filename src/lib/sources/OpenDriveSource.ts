@@ -1,7 +1,119 @@
 
-import { ISource, FileInfo, SourceConfigProps, SourceConfig } from "./types";
-import SourceConfigOpenDrive from "@/components/Sources/SourceConfigOpenDrive";
-import OpenDriveSourceActions from "@/components/Sources/OpenDriveSourceActions";
+import React from "react";
+import { ISource, FileInfo, SourceConfigProps, SourceConfig, SourceActionsProps } from "./types";
+import { Button } from "@/components/ui/button";
+import { Edit, Trash2, HardDrive } from "lucide-react";
+
+// UI Components
+const SourceConfigOpenDrive: React.FC<SourceConfigProps> = ({
+  form,
+  setForm,
+  editIdx,
+  handleAddOrSave,
+  handleCancel,
+  encryptionMethods,
+}) => (
+  <div className="p-4 rounded-xl border border-green-700/50 bg-[#191f29] mb-2 animate-scale-in">
+    <div className="mb-3 font-semibold text-lg text-green-400 flex items-center">
+      <HardDrive className="mr-2" />
+      {editIdx !== null ? "Edit OpenDrive Source" : "New OpenDrive Source"}
+    </div>
+    <div className="mb-2">
+      <label className="text-sm">Name</label>
+      <input
+        className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+        value={form.name}
+        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+        autoFocus
+      />
+    </div>
+    <div className="mb-2">
+      <label className="text-sm">Encryption Method</label>
+      <select
+        className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
+        value={form.encryption}
+        onChange={e => setForm(f => ({ ...f, encryption: e.target.value }))}
+      >
+        <option value="">Choose...</option>
+        {encryptionMethods.map((m, idx) => (
+          <option key={m.name + idx} value={m.name}>
+            {m.name}
+          </option>
+        ))}
+      </select>
+    </div>
+    <div className="mb-2">
+      <label className="text-sm">OpenDrive Username</label>
+      <input
+        className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+        value={form.username || ""}
+        onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+        autoFocus={false}
+      />
+    </div>
+    <div className="mb-2">
+      <label className="text-sm">OpenDrive Password</label>
+      <input
+        className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+        type="password"
+        value={form.password || ""}
+        onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+        autoFocus={false}
+      />
+    </div>
+    <div className="mb-2">
+      <label className="text-sm">Root Folder (e.g. / or /Vault, or a Folder ID)</label>
+      <input
+        className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600 focus:outline-none"
+        value={form.rootFolder || ""}
+        onChange={e => setForm(f => ({ ...f, rootFolder: e.target.value }))}
+        autoFocus={false}
+      />
+    </div>
+    <div className="flex justify-end space-x-2 mt-3">
+      <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+      <Button
+        variant="default"
+        className="bg-green-700 hover:bg-green-500"
+        onClick={handleAddOrSave}
+        disabled={!form.name || !form.encryption || !form.username || !form.password || !form.rootFolder}
+      >
+        {editIdx !== null ? "Save" : "Add"}
+      </Button>
+    </div>
+  </div>
+);
+
+const OpenDriveSourceActions: React.FC<SourceActionsProps> = ({
+  sourceIndex,
+  onEdit,
+  onDelete,
+}) => {
+  return (
+    <div className="flex items-center gap-2 ml-6">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onEdit}
+        title="Edit"
+        className="border-green-500 text-green-400"
+      >
+        <Edit size={14} />
+        Edit
+      </Button>
+      <Button
+        size="sm"
+        variant="destructive"
+        className="ml-0"
+        onClick={onDelete}
+        title="Delete Source"
+      >
+        <Trash2 size={14} />
+        Delete
+      </Button>
+    </div>
+  );
+};
 
 export class OpenDriveSource implements ISource {
   readonly type = "opendrive" as const;
@@ -103,6 +215,11 @@ export class OpenDriveSource implements ISource {
   async write(path: string, content: string | ArrayBuffer): Promise<void> {
     // Implementation would depend on OpenDrive's file upload API
     throw new Error("OpenDrive write not implemented yet");
+  }
+
+  async mkdir(path: string): Promise<void> {
+    // Implementation would depend on OpenDrive's folder creation API
+    throw new Error("OpenDrive mkdir not implemented yet");
   }
 
   async validateConfig(config: Record<string, any>): Promise<string | null> {
