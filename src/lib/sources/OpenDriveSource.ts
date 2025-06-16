@@ -1,6 +1,7 @@
 
 import { ISource, FileInfo, SourceConfigProps, SourceConfig } from "./types";
 import SourceConfigOpenDrive from "@/components/Sources/SourceConfigOpenDrive";
+import OpenDriveSourceActions from "@/components/Sources/OpenDriveSourceActions";
 
 export class OpenDriveSource implements ISource {
   readonly type = "opendrive" as const;
@@ -17,6 +18,7 @@ export class OpenDriveSource implements ISource {
   }
 
   ConfigComponent = SourceConfigOpenDrive;
+  ActionsComponent = OpenDriveSourceActions;
 
   async listdir(path: string): Promise<FileInfo[]> {
     try {

@@ -1,6 +1,7 @@
 
 import { ISource, FileInfo, SourceConfigProps, SourceConfig } from "./types";
 import SourceConfigLocal from "@/components/Sources/SourceConfigLocal";
+import LocalSourceActions from "@/components/Sources/LocalSourceActions";
 
 export class LocalSource implements ISource {
   readonly type = "local" as const;
@@ -13,6 +14,7 @@ export class LocalSource implements ISource {
   }
 
   ConfigComponent = SourceConfigLocal;
+  ActionsComponent = LocalSourceActions;
 
   async listdir(path: string): Promise<FileInfo[]> {
     // For local storage, we'll return empty array since we don't have a real filesystem

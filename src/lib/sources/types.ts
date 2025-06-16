@@ -20,14 +20,21 @@ export interface SourceConfigProps {
   encryptionMethods: { name: string }[];
 }
 
+export interface SourceActionsProps {
+  sourceIndex: number;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
 export interface ISource {
   // Configuration
   readonly type: SourceType;
   readonly name: string;
   readonly config: Record<string, any>;
   
-  // UI Component for configuration
+  // UI Components
   ConfigComponent: React.FC<SourceConfigProps>;
+  ActionsComponent: React.FC<SourceActionsProps>;
   
   // Core operations
   listdir(path: string): Promise<FileInfo[]>;

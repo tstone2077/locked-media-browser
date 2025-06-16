@@ -1,414 +1,72 @@
 
-import { useState, useRef } from "react";
-import { Image, Lock, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
+import { useState } from "react";
+import { Image, Lock, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSources } from "@/lib/sources";
 import type { SourceConfig } from "@/lib/sources/index";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
-import JSZip from "jszip";
-import { useFileVault, FileEntry } from "@/context/FileVaultContext";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/hooks/use-toast";
-// ENCRYPTION for vault metadata
-import { useCrypto } from "@/hooks/useCrypto";
 import SourceConfigLocal from "./Sources/SourceConfigLocal";
 import SourceConfigOpenDrive from "./Sources/SourceConfigOpenDrive";
 
-// Utility to get generic file name for index
-function getGenericFileName(idx: number) {
-  return `file-${idx}`;
-}
-
-function getIndexFileName() {
-  return "vault-index.json.enc";
-}
-
-async function exportVault(filesPerSource: Record<number, FileEntry[]>) {
-  const zip = new JSZip();
-
-  for (const [sourceIdx, files] of Object.entries(filesPerSource)) {
-    const folder = zip.folder(`source-${sourceIdx}`);
-    if (!folder) continue;
-
-    if (!files || !files.length) continue;
-
-    // Build index and save generic files
-    const indexData: any[] = [];
-    files.forEach((file, idx) => {
-      const genericName = getGenericFileName(idx);
-      indexData.push({
-        generic: genericName,
-        name: file.name,
-        type: file.type,
-        parent: file.parent,
-      });
-      // Save encrypted payload with generic file name, except for folders (no content)
-      if (file.type !== "folder") {
-        folder.file(genericName, file.encrypted);
-      }
-    });
-
-    // Encrypt the metadata index file and store in zip
-    // Use passphrase for WebCrypto AES-GCM (same as file encryption, can be refactored to use user-selected method)
-    const ENCRYPT_PASS = "vault-password";
-    // The useCrypto hook requires React/useState. We'll create our own utility version here, since this runs outside component
-    // Utility function for encryption (adapted from useCrypto)
-    async function indexEncrypt(data: any): Promise<string> {
-      const enc = new TextEncoder();
-      const json = JSON.stringify(data);
-      // Derive key
-      const salt = enc.encode("filevault-static-salt");
-      const keyMaterial = await window.crypto.subtle.importKey(
-        "raw",
-        enc.encode(ENCRYPT_PASS),
-        { name: "PBKDF2" },
-        false,
-        ["deriveKey"]
-      );
-      const key = await window.crypto.subtle.deriveKey(
-        {
-          name: "PBKDF2",
-          salt,
-          iterations: 100000,
-          hash: "SHA-256",
-        },
-        keyMaterial,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["encrypt", "decrypt"]
-      );
-      // Encrypt
-      const iv = window.crypto.getRandomValues(new Uint8Array(12));
-      const ciphertext = await window.crypto.subtle.encrypt(
-        { name: "AES-GCM", iv },
-        key,
-        enc.encode(json)
-      );
-      // Export as iv:ciphertext, both base64
-      function base64(buf: ArrayBuffer) {
-        const bytes = new Uint8Array(buf);
-        let binary = "";
-        const chunkSize = 0x8000;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          binary += String.fromCharCode.apply(
-            null,
-            bytes.subarray(i, i + chunkSize) as unknown as number[]
-          );
-        }
-        return btoa(binary);
-      }
-      return base64(iv) + ":" + base64(ciphertext);
-    }
-    const encryptedIndex = await indexEncrypt(indexData);
-    folder.file(getIndexFileName(), encryptedIndex);
-  }
-
-  const blob = await zip.generateAsync({ type: "blob" });
-
-  let usedPicker = false;
-  if (
-    typeof window !== "undefined" &&
-    typeof (window as any).showSaveFilePicker === "function"
-  ) {
-    try {
-      // @ts-ignore
-      const pickerOpts = {
-        suggestedName: "safebox-vault.zip",
-        types: [
-          {
-            description: "Zip Archive",
-            accept: { "application/zip": [".zip"] },
-          },
-        ],
-      };
-      // @ts-ignore
-      const handle = await window.showSaveFilePicker(pickerOpts);
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      toast({
-        title: "File Picker Used",
-        description: "Exported using Save File Picker.",
-      });
-      usedPicker = true;
-    } catch (e) {
-      toast({
-        title: "File Picker Cancelled",
-        description: "Falling back to download.",
-      });
-    }
-  }
-  if (!usedPicker) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "safebox-vault.zip";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    toast({
-      title: "Classic Download Used",
-      description: "Exported using classic download.",
-    });
-  }
-}
-
-// Utility decrypt - same logic as above, but for reading index on import.
-async function indexDecrypt(encrypted: string): Promise<any[]> {
-  const dec = new TextDecoder();
-  // Key params same as in export
-  const ENCRYPT_PASS = "vault-password";
-  const salt = new TextEncoder().encode("filevault-static-salt");
-  const keyMaterial = await window.crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(ENCRYPT_PASS),
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"]
-  );
-  const key = await window.crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 100000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"]
-  );
-  // Split iv:ciphertext
-  if (!encrypted.includes(":")) throw new Error("Malformed encrypted index.");
-  const [ivB64, ctB64] = encrypted.split(":");
-  function fromB64(b64: string): Uint8Array {
-    return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  }
-  const iv = fromB64(ivB64);
-  const ct = fromB64(ctB64);
-  const decryptedBuf = await window.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    ct
-  );
-  const json = dec.decode(decryptedBuf);
-  return JSON.parse(json);
-}
-
-function importVault(
-  file: File,
-  setFilesPerSource: (
-    updater: (old: Record<number, FileEntry[]>) => Record<number, FileEntry[]>
-  ) => void
-) {
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const arrayBuffer = reader.result as ArrayBuffer;
-    try {
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      const newFiles: Record<number, FileEntry[]> = {};
-
-      // Pass 1: find all index metadata files: source-idx/vault-index.json.enc
-      const indexFileEntries: { sourceIdx: number; zipEntry: JSZip.JSZipObject; folderEntries: JSZip.JSZipObject[] }[] = [];
-      zip.forEach((relativePath, zipEntry) => {
-        const matchIdxFile = /^source-(\d+)\/vault-index\.json\.enc$/.exec(relativePath);
-        if (matchIdxFile) {
-          const sourceIdx = parseInt(matchIdxFile[1], 10);
-          // Gather also all entries in this folder (except index file)
-          const filesInFolder: JSZip.JSZipObject[] = [];
-          zip.forEach((path2, zipEntry2) => {
-            const folderPrefix = `source-${sourceIdx}/`;
-            if (
-              path2.startsWith(folderPrefix) &&
-              path2 !== `source-${sourceIdx}/vault-index.json.enc`
-            ) {
-              filesInFolder.push(zipEntry2);
-            }
-          });
-          indexFileEntries.push({ sourceIdx, zipEntry, folderEntries: filesInFolder });
-        }
-      });
-
-      // For each found source, process files using the index
-      for (const { sourceIdx, zipEntry, folderEntries } of indexFileEntries) {
-        const indexEnc = await zipEntry.async("text");
-        const metaArr = await indexDecrypt(indexEnc);
-
-        // Map generic fileName -> zipEntry for this folder
-        const fileMap: Record<string, JSZip.JSZipObject> = {};
-        for (const fe of folderEntries) {
-          // Only files, no dir
-          if (!fe.dir) {
-            const fname = fe.name.replace(/^source-\d+\//, ""); // Remove path prefix to get generic name
-            fileMap[fname] = fe;
-          }
-        }
-
-        const sourceFiles: FileEntry[] = [];
-
-        for (const meta of metaArr) {
-          // For folders, no encrypted file needed, else map generic name to actual encrypted content
-          if (meta.type === "folder") {
-            sourceFiles.push({
-              name: meta.name,
-              type: "folder",
-              encrypted: "",
-              parent: meta.parent,
-            });
-          } else {
-            const zipObj = fileMap[meta.generic];
-            const encPayload =
-              zipObj && !zipObj.dir ? await zipObj.async("text") : "";
-            sourceFiles.push({
-              name: meta.name,
-              type: meta.type,
-              encrypted: encPayload,
-              parent: meta.parent,
-            });
-          }
-        }
-        newFiles[sourceIdx] = sourceFiles;
-      }
-
-      setFilesPerSource((prev) => ({
-        ...prev,
-        ...newFiles,
-      }));
-      toast({
-        title: "Import successful!",
-        description: "Imported files are now visible below.",
-      });
-    } catch (e) {
-      alert("Error unpacking vault zip: " + (e as Error).message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// Extend the source config type for OpenDrive credentials
-type OpenDriveExtra = {
-  username: string;
-  password: string;
-  rootFolder: string;
-};
-
-type SourceConfigWithExtras = {
+// Simple form type for editing
+type SourceConfigForm = {
   name: string;
   type: "local" | "opendrive";
   encryption: string;
-  username?: string;
-  password?: string;
-  rootFolder?: string;
+  [key: string]: any; // Allow additional config properties
 };
-
-const SOURCE_TYPES = [
-  { value: "local", label: "Local Storage" },
-  { value: "opendrive", label: "OpenDrive" },
-];
 
 const SourceConfigPanel = () => {
   const { sources, sourceConfigs, addSource, removeSource } = useSources();
-  const { filesPerSource, setFilesPerSource } = useFileVault();
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
-  // Add OpenDrive fields to form state
-  const [form, setForm] = useState<SourceConfigWithExtras>({
+  const [form, setForm] = useState<SourceConfigForm>({
     name: "",
     type: "local",
     encryption: "",
-    username: "",
-    password: "",
-    rootFolder: "",
   });
-  const importRef = useRef<HTMLInputElement | null>(null);
 
   function startEdit(idx: number) {
     setEditIdx(idx);
     setShowAdd(true);
-    // Use sourceConfigs instead of sources for editing
     const sourceConfig = sourceConfigs[idx];
-    setForm({
-      name: sourceConfig.name,
-      type: sourceConfig.type,
-      encryption: sourceConfig.encryption,
-      username: (sourceConfig as any).username || "",
-      password: (sourceConfig as any).password || "",
-      rootFolder: (sourceConfig as any).rootFolder || "",
-    });
-  }
-
-  async function verifyOpenDriveConnection(form: SourceConfigWithExtras): Promise<null | string> {
-    if (form.type !== "opendrive" || !form.username || !form.password || !form.rootFolder) return null;
-    try {
-      // OpenDrive API: https://dev.opendrive.com/folder/list
-      // We'll check if we can list the rootFolder
-      const resp = await fetch("https://dev.opendrive.com/folder/list.json", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username: form.username,
-          passwd: form.password,
-          folder_id: form.rootFolder === "/" ? "0" : form.rootFolder // "0" is root in OpenDrive
-        })
-      });
-
-      if (!resp.ok) {
-        return `Could not connect to OpenDrive (${resp.status}): ${resp.statusText}`;
-      }
-      const json = await resp.json();
-      // If API returns error or unauthorized
-      if ((json && json.Error) || resp.status === 401 || resp.status === 403) {
-        return json && json.Error ? json.Error : "Unauthorized OpenDrive credentials.";
-      }
-      // Otherwise, it worked!
-      return null;
-    } catch (err) {
-      return "Network error or unable to connect to OpenDrive.";
-    }
+    setForm({ ...sourceConfig });
   }
 
   async function handleAddOrSave() {
     if (!form.name || !form.encryption) return;
-    if (form.type === "opendrive" && (!form.username || !form.password || !form.rootFolder)) return;
 
-    // OpenDrive: validate before saving!
-    if (form.type === "opendrive") {
-      const errorMsg = await verifyOpenDriveConnection(form);
-      if (errorMsg) {
+    // Use the source's validation if available
+    let validationError: string | null = null;
+    if (editIdx !== null && sources[editIdx]) {
+      validationError = await sources[editIdx].validateConfig(form);
+      if (validationError) {
         toast({
-          title: "OpenDrive Connection Failed",
-          description: errorMsg,
+          title: "Validation Failed",
+          description: validationError,
           variant: "destructive",
         });
         return;
       }
     }
-    // Prepare clean object
-    const cleanForm: SourceConfigWithExtras = { ...form };
-    if (form.type !== "opendrive") {
-      delete cleanForm.username;
-      delete cleanForm.password;
-      delete cleanForm.rootFolder;
-    }
+
     if (editIdx !== null) {
-      const updatedSources = sourceConfigs.map((s, i) => (i === editIdx ? cleanForm : s));
+      const updatedSources = sourceConfigs.map((s, i) => (i === editIdx ? form as SourceConfig : s));
       Array(sourceConfigs.length)
         .fill(0)
         .forEach((_, i) => removeSource(0));
-      updatedSources.forEach(s => addSource(s as SourceConfig));
+      updatedSources.forEach(s => addSource(s));
     } else {
-      addSource(cleanForm as SourceConfig);
+      addSource(form as SourceConfig);
     }
+    
     setEditIdx(null);
     setForm({
       name: "",
       type: "local",
       encryption: "",
-      username: "",
-      password: "",
-      rootFolder: "",
     });
     setShowAdd(false);
   }
@@ -422,9 +80,6 @@ const SourceConfigPanel = () => {
         name: "",
         type: "local",
         encryption: "",
-        username: "",
-        password: "",
-        rootFolder: "",
       });
     }
   }
@@ -436,24 +91,9 @@ const SourceConfigPanel = () => {
       name: "",
       type: "local",
       encryption: "",
-      username: "",
-      password: "",
-      rootFolder: "",
     });
   }
 
-  function triggerImport() {
-    importRef.current?.click();
-  }
-
-  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files && e.target.files[0]) {
-      importVault(e.target.files[0], setFilesPerSource);
-      e.target.value = ""; // Reset for future imports
-    }
-  }
-
-  // For encryption method choices
   const { methods } = useEncryptionMethods();
 
   return (
@@ -476,7 +116,6 @@ const SourceConfigPanel = () => {
                   {source.type === "local" ? (
                     <HardDrive className="text-green-400" size={18} />
                   ) : (
-                    // OpenDrive icon fallback to Image
                     <Image className="text-green-400" size={18} />
                   )}
                   <span className="font-medium text-green-200">{source.name}</span>
@@ -495,90 +134,17 @@ const SourceConfigPanel = () => {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 ml-6">
-                {source.type === "local" ? (
-                  <>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-green-500 text-green-400 flex gap-1"
-                        onClick={() => exportVault(filesPerSource)}
-                        title="Export all files"
-                      >
-                        <Download size={14} />
-                        Export Vault
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-green-500 text-green-400 flex gap-1"
-                        onClick={triggerImport}
-                        title="Import files"
-                      >
-                        <Upload size={14} />
-                        Import Vault
-                        <input
-                          type="file"
-                          accept=".zip"
-                          ref={importRef}
-                          onChange={handleImport}
-                          className="hidden"
-                        />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => startEdit(idx)}
-                        title="Edit"
-                        className="border-green-500 text-green-400"
-                      >
-                        <Edit size={14} />
-                        Edit
-                      </Button>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="ml-4 self-center"
-                      onClick={() => handleRemove(idx)}
-                      title="Delete Source"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </Button>
-                  </>
-                ) : (
-                  // For OpenDrive source
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => startEdit(idx)}
-                      title="Edit"
-                      className="border-green-500 text-green-400"
-                    >
-                      <Edit size={14} />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="ml-0"
-                      onClick={() => handleRemove(idx)}
-                      title="Delete Source"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </Button>
-                  </>
-                )}
-              </div>
+              {/* Use source-specific actions component */}
+              <source.ActionsComponent
+                sourceIndex={idx}
+                onEdit={() => startEdit(idx)}
+                onDelete={() => handleRemove(idx)}
+              />
             </li>
           );
         })}
       </ul>
+
       {/* ADD/EDIT SOURCE FORM */}
       {showAdd ? (
         form.type === "opendrive" ? (
