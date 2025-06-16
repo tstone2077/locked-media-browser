@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Image, Lock, Download, Upload, Edit, Trash2, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -306,7 +307,7 @@ const SOURCE_TYPES = [
 ];
 
 const SourceConfigPanel = () => {
-  const { sources, addSource, removeSource } = useSources();
+  const { sources, sourceConfigs, addSource, removeSource } = useSources();
   const { filesPerSource, setFilesPerSource } = useFileVault();
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -324,13 +325,15 @@ const SourceConfigPanel = () => {
   function startEdit(idx: number) {
     setEditIdx(idx);
     setShowAdd(true);
-    // Handle OpenDrive extended fields if editing
+    // Use sourceConfigs instead of sources for editing
+    const sourceConfig = sourceConfigs[idx];
     setForm({
-      ...sources[idx],
-      // Fallback values: ensure fields exist on form
-      username: (sources[idx] as any).username || "",
-      password: (sources[idx] as any).password || "",
-      rootFolder: (sources[idx] as any).rootFolder || "",
+      name: sourceConfig.name,
+      type: sourceConfig.type,
+      encryption: sourceConfig.encryption,
+      username: (sourceConfig as any).username || "",
+      password: (sourceConfig as any).password || "",
+      rootFolder: (sourceConfig as any).rootFolder || "",
     });
   }
 
@@ -390,13 +393,13 @@ const SourceConfigPanel = () => {
       delete cleanForm.rootFolder;
     }
     if (editIdx !== null) {
-      const updatedSources = sources.map((s, i) => (i === editIdx ? cleanForm : s));
-      Array(sources.length)
+      const updatedSources = sourceConfigs.map((s, i) => (i === editIdx ? cleanForm : s));
+      Array(sourceConfigs.length)
         .fill(0)
         .forEach((_, i) => removeSource(0));
-      updatedSources.forEach(s => addSource(s));
+      updatedSources.forEach(s => addSource(s as SourceConfig));
     } else {
-      addSource(cleanForm as any);
+      addSource(cleanForm as SourceConfig);
     }
     setEditIdx(null);
     setForm({
@@ -459,69 +462,96 @@ const SourceConfigPanel = () => {
         {sources.length === 0 && (
           <li className="opacity-70 text-sm">No data sources configured.</li>
         )}
-        {sources.map((s, idx) => (
-          <li
-            key={s.name + idx}
-            className={cn(
-              "rounded-lg px-4 py-3 bg-[#28344a]/70 flex items-center justify-between border border-green-900/40 animate-fade-in"
-            )}
-          >
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                {s.type === "local" ? (
-                  <HardDrive className="text-green-400" size={18} />
-                ) : (
-                  // OpenDrive icon fallback to Image
-                  <Image className="text-green-400" size={18} />
-                )}
-                <span className="font-medium text-green-200">{s.name}</span>
-                <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">
-                  {s.type === "local" ? "LOCAL" : "OPENDRIVE"}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                <Lock size={14} className="inline text-green-300/60" />
-                <span>
-                  Uses: <span className="opacity-90">{s.encryption}</span>
-                  {s.type === "opendrive" && s.username && (
-                    <> ({s.username})</>
+        {sources.map((source, idx) => {
+          const sourceConfig = sourceConfigs[idx];
+          return (
+            <li
+              key={source.name + idx}
+              className={cn(
+                "rounded-lg px-4 py-3 bg-[#28344a]/70 flex items-center justify-between border border-green-900/40 animate-fade-in"
+              )}
+            >
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  {source.type === "local" ? (
+                    <HardDrive className="text-green-400" size={18} />
+                  ) : (
+                    // OpenDrive icon fallback to Image
+                    <Image className="text-green-400" size={18} />
                   )}
-                </span>
+                  <span className="font-medium text-green-200">{source.name}</span>
+                  <span className="text-xs tracking-tight bg-green-900/30 text-green-200 px-2 py-0.5 rounded ml-2">
+                    {source.type === "local" ? "LOCAL" : "OPENDRIVE"}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Lock size={14} className="inline text-green-300/60" />
+                  <span>
+                    Uses: <span className="opacity-90">{sourceConfig.encryption}</span>
+                    {source.type === "opendrive" && (sourceConfig as any).username && (
+                      <> ({(sourceConfig as any).username})</>
+                    )}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 ml-6">
-              {s.type === "local" ? (
-                <>
-                  <div className="flex flex-col gap-2">
+              {/* Actions */}
+              <div className="flex items-center gap-2 ml-6">
+                {source.type === "local" ? (
+                  <>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-green-500 text-green-400 flex gap-1"
+                        onClick={() => exportVault(filesPerSource)}
+                        title="Export all files"
+                      >
+                        <Download size={14} />
+                        Export Vault
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-green-500 text-green-400 flex gap-1"
+                        onClick={triggerImport}
+                        title="Import files"
+                      >
+                        <Upload size={14} />
+                        Import Vault
+                        <input
+                          type="file"
+                          accept=".zip"
+                          ref={importRef}
+                          onChange={handleImport}
+                          className="hidden"
+                        />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEdit(idx)}
+                        title="Edit"
+                        className="border-green-500 text-green-400"
+                      >
+                        <Edit size={14} />
+                        Edit
+                      </Button>
+                    </div>
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="border-green-500 text-green-400 flex gap-1"
-                      onClick={() => exportVault(filesPerSource)}
-                      title="Export all files"
+                      variant="destructive"
+                      className="ml-4 self-center"
+                      onClick={() => handleRemove(idx)}
+                      title="Delete Source"
                     >
-                      <Download size={14} />
-                      Export Vault
+                      <Trash2 size={14} />
+                      Delete
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-green-500 text-green-400 flex gap-1"
-                      onClick={triggerImport}
-                      title="Import files"
-                    >
-                      <Upload size={14} />
-                      Import Vault
-                      <input
-                        type="file"
-                        accept=".zip"
-                        ref={importRef}
-                        onChange={handleImport}
-                        className="hidden"
-                      />
-                    </Button>
+                  </>
+                ) : (
+                  // For OpenDrive source
+                  <>
                     <Button
                       size="sm"
                       variant="outline"
@@ -532,46 +562,22 @@ const SourceConfigPanel = () => {
                       <Edit size={14} />
                       Edit
                     </Button>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="ml-4 self-center"
-                    onClick={() => handleRemove(idx)}
-                    title="Delete Source"
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </Button>
-                </>
-              ) : (
-                // For OpenDrive source
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => startEdit(idx)}
-                    title="Edit"
-                    className="border-green-500 text-green-400"
-                  >
-                    <Edit size={14} />
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="ml-0"
-                    onClick={() => handleRemove(idx)}
-                    title="Delete Source"
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </Button>
-                </>
-              )}
-            </div>
-          </li>
-        ))}
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="ml-0"
+                      onClick={() => handleRemove(idx)}
+                      title="Delete Source"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </Button>
+                  </>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
       {/* ADD/EDIT SOURCE FORM */}
       {showAdd ? (
