@@ -1,22 +1,33 @@
 
 import { useSessionStorage } from "./session-storage";
-import { EncryptionMethodConfig } from "./encryption-methods";
+import { EncryptionMethodConfig, IEncryptionMethod } from "./encryption-methods/types";
+import { MethodFactory } from "./encryption-methods/MethodFactory";
 
 const ENCRYPTION_KEY = "encryption-methods";
 
 export function useEncryptionMethods() {
-  const [methods, setMethods] = useSessionStorage<EncryptionMethodConfig[]>(ENCRYPTION_KEY, []);
+  const [methodConfigs, setMethodConfigs] = useSessionStorage<EncryptionMethodConfig[]>(ENCRYPTION_KEY, []);
+
+  // Convert configs to method instances
+  const methods: IEncryptionMethod[] = methodConfigs.map(config => MethodFactory.create(config));
 
   function addMethod(config: EncryptionMethodConfig) {
-    setMethods([...methods, config]);
+    setMethodConfigs([...methodConfigs, config]);
   }
+  
   function removeMethod(index: number) {
-    setMethods(methods.filter((_, idx) => idx !== index));
+    setMethodConfigs(methodConfigs.filter((_, idx) => idx !== index));
+  }
+
+  function updateMethod(index: number, config: EncryptionMethodConfig) {
+    setMethodConfigs(methodConfigs.map((m, idx) => idx === index ? config : m));
   }
 
   return {
     methods,
+    methodConfigs,
     addMethod,
     removeMethod,
+    updateMethod,
   };
 }

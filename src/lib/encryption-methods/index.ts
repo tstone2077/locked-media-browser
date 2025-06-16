@@ -1,12 +1,11 @@
 
-import { GPGConfig, GPGMethod } from "./gpg";
-import { AES256Config, AES256Method } from "./aes256";
+export * from "./types";
+export * from "./GPGMethod";
+export * from "./AES256Method";
+export * from "./MethodFactory";
 
-export type EncryptionMethodConfig = GPGConfig | AES256Config;
+// Legacy exports for backward compatibility
+export { GPGMethod as GPGConfig } from "./GPGMethod";
+export { AES256Method as AES256Config } from "./AES256Method";
 
-export const ENCRYPTION_METHODS = [GPGMethod, AES256Method];
-
-// Use type-only exports for isolatedModules compatibility:
-export type { GPGConfig } from "./gpg";
-export type { AES256Config } from "./aes256";
-export { GPGMethod, AES256Method };
+export const ENCRYPTION_METHODS = ["gpg", "aes-256"] as const;
