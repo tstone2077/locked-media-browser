@@ -1,23 +1,33 @@
 
 import { useSessionStorage } from "./session-storage";
-import type { SourceConfig } from "./sources/index";
+import { ISource, SourceConfig } from "./sources/types";
+import { SourceFactory } from "./sources/SourceFactory";
 
 const SOURCES_KEY = "sources";
 
 export function useSources() {
-  const [sources, setSources] = useSessionStorage<SourceConfig[]>(SOURCES_KEY, []);
+  const [sourceConfigs, setSourceConfigs] = useSessionStorage<SourceConfig[]>(SOURCES_KEY, []);
 
-  function addSource(source: SourceConfig) {
-    setSources([...sources, source]);
+  // Convert configs to source instances
+  const sources: ISource[] = sourceConfigs.map(config => SourceFactory.create(config));
+
+  function addSource(config: SourceConfig) {
+    setSourceConfigs([...sourceConfigs, config]);
   }
+
   function removeSource(index: number) {
-    setSources(sources.filter((_, idx) => idx !== index));
+    setSourceConfigs(sourceConfigs.filter((_, idx) => idx !== index));
+  }
+
+  function updateSource(index: number, config: SourceConfig) {
+    setSourceConfigs(sourceConfigs.map((s, idx) => idx === index ? config : s));
   }
 
   return {
     sources,
+    sourceConfigs,
     addSource,
     removeSource,
+    updateSource,
   };
 }
-

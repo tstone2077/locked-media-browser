@@ -1,8 +1,12 @@
-
 import type { LocalSourceConfig } from "./local";
 import type { OpenDriveSourceConfig } from "./opendrive";
 
-export type SourceConfig = LocalSourceConfig | OpenDriveSourceConfig;
-export type { LocalSourceConfig, OpenDriveSourceConfig };
-// export SourceConfig type from this index for single-source-of-truth
+export * from "./types";
+export * from "./LocalSource";
+export * from "./OpenDriveSource";
+export * from "./SourceFactory";
 
+// Keep the existing types for backward compatibility
+export type { LocalSourceConfig } from "./local";
+export type { OpenDriveSourceConfig } from "./opendrive";
+export type { SourceConfig as LegacySourceConfig } from "./local";
