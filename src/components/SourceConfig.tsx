@@ -7,8 +7,6 @@ import type { SourceConfig } from "@/lib/sources/index";
 import { useEncryptionMethods } from "@/lib/encryption";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import SourceConfigLocal from "./Sources/SourceConfigLocal";
-import SourceConfigOpenDrive from "./Sources/SourceConfigOpenDrive";
 
 // Simple form type for editing
 type SourceConfigForm = {
@@ -145,28 +143,62 @@ const SourceConfigPanel = () => {
         })}
       </ul>
 
-      {/* ADD/EDIT SOURCE FORM */}
-      {showAdd ? (
-        form.type === "opendrive" ? (
-          <SourceConfigOpenDrive
-            form={form}
-            setForm={setForm}
-            editIdx={editIdx}
-            handleAddOrSave={handleAddOrSave}
-            handleCancel={handleCancel}
-            encryptionMethods={methods}
-          />
-        ) : (
-          <SourceConfigLocal
-            form={form}
-            setForm={setForm}
-            editIdx={editIdx}
-            handleAddOrSave={handleAddOrSave}
-            handleCancel={handleCancel}
-            encryptionMethods={methods}
-          />
-        )
-      ) : (
+      {/* ADD/EDIT SOURCE FORM - Now render the config component from the source factory */}
+      {showAdd && (
+        <div>
+          {/* Type selector */}
+          <div className="mb-4">
+            <label className="text-sm">Source Type</label>
+            <select
+              className="w-full mt-1 p-2 rounded bg-[#10151e] border border-green-600"
+              value={form.type}
+              onChange={e => setForm(f => ({ ...f, type: e.target.value as "local" | "opendrive" }))}
+            >
+              <option value="local">Local Storage</option>
+              <option value="opendrive">OpenDrive</option>
+            </select>
+          </div>
+          
+          {/* Render the appropriate config component based on type */}
+          {form.type === "local" ? (
+            // We need to create a temporary LocalSource instance to get its ConfigComponent
+            (() => {
+              const { LocalSource } = require("@/lib/sources");
+              const tempSource = new LocalSource({ name: "", type: "local", encryption: "" });
+              const ConfigComponent = tempSource.ConfigComponent;
+              return (
+                <ConfigComponent
+                  form={form}
+                  setForm={setForm}
+                  editIdx={editIdx}
+                  handleAddOrSave={handleAddOrSave}
+                  handleCancel={handleCancel}
+                  encryptionMethods={methods}
+                />
+              );
+            })()
+          ) : (
+            // Same for OpenDrive
+            (() => {
+              const { OpenDriveSource } = require("@/lib/sources");
+              const tempSource = new OpenDriveSource({ name: "", type: "opendrive", encryption: "", username: "", password: "", rootFolder: "" });
+              const ConfigComponent = tempSource.ConfigComponent;
+              return (
+                <ConfigComponent
+                  form={form}
+                  setForm={setForm}
+                  editIdx={editIdx}
+                  handleAddOrSave={handleAddOrSave}
+                  handleCancel={handleCancel}
+                  encryptionMethods={methods}
+                />
+              );
+            })()
+          )}
+        </div>
+      )}
+
+      {!showAdd && (
         <Button variant="outline" onClick={() => setShowAdd(true)} className="w-full mt-2 text-green-400 border-green-500 flex gap-2">
           <HardDrive size={16} /> Add Data Source
         </Button>
