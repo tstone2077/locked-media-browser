@@ -29,8 +29,13 @@ const EncryptedFileGrid = ({
 }: EncryptedFileGridProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   
-  const { mediaViewer, setMediaViewer, navigatePrev, navigateNext } = useMediaViewer();
-  
+  // Always call hooks in the same order
+  const mediaViewerHook = useMediaViewer();
+  const fileOperationsHook = useFileOperations(files, onDeleteFile, onUpdateFile);
+  const dragAndDropHook = useDragAndDrop(files, onUpdateFile);
+
+  // Destructure after all hooks are called
+  const { mediaViewer, setMediaViewer, navigatePrev, navigateNext } = mediaViewerHook;
   const {
     selected,
     setSelected,
@@ -39,13 +44,12 @@ const EncryptedFileGrid = ({
     handleBulkDecrypt,
     handleMove,
     handleEncrypt
-  } = useFileOperations(files, onDeleteFile, onUpdateFile);
-
+  } = fileOperationsHook;
   const {
     handleDragStart,
     handleDragEnd,
     handleDropOnFolder
-  } = useDragAndDrop(files, onUpdateFile);
+  } = dragAndDropHook;
 
   const folders = useMemo(() => {
     return files.filter(f => f.type === "folder" && (f.parent === undefined || f.parent === currentPath[currentPath.length - 1]));
@@ -65,6 +69,25 @@ const EncryptedFileGrid = ({
     return filesInCurrent.filter(file => file.name.toLowerCase().includes(term));
   }, [filesInCurrent, searchTerm]);
 
+  // Add index property to files for proper tracking
+  const indexedFiles = useMemo(() => {
+    return files.map((file, index) => ({ ...file, __idx: index }));
+  }, [files]);
+
+  const indexedFolders = useMemo(() => {
+    return folders.map(folder => {
+      const originalIndex = files.findIndex(f => f === folder);
+      return { ...folder, __idx: originalIndex };
+    });
+  }, [folders, files]);
+
+  const indexedFilteredFiles = useMemo(() => {
+    return filteredFiles.map(file => {
+      const originalIndex = files.findIndex(f => f === file);
+      return { ...file, __idx: originalIndex };
+    });
+  }, [filteredFiles, files]);
+
   return (
     <div className="w-full">
       <FileNavigation currentPath={currentPath} onPathChange={onPathChange} />
@@ -72,7 +95,7 @@ const EncryptedFileGrid = ({
       <div className="flex justify-between items-center mb-4">
         <FileSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         <BulkActionsBar
-          files={files}
+          files={indexedFiles}
           selected={selected}
           setSelected={setSelected}
           allFolders={allFolders}
@@ -83,8 +106,8 @@ const EncryptedFileGrid = ({
       </div>
 
       <FileGridContent
-        folders={folders}
-        filesInCurrent={filteredFiles}
+        folders={indexedFolders}
+        filesInCurrent={indexedFilteredFiles}
         selected={selected}
         handleCheck={handleCheck}
         setCurrentPath={onPathChange}
@@ -103,14 +126,20 @@ const EncryptedFileGrid = ({
       <MediaViewer
         open={mediaViewer.open}
         setOpen={open => setMediaViewer({ ...mediaViewer, open })}
-        file={files[mediaViewer.fileIdx] && files[mediaViewer.fileIdx].type !== "folder" ? {
-          name: files[mediaViewer.fileIdx].name,
-          type: files[mediaViewer.fileIdx].type as "image" | "text" | "video",
-          decrypted: files[mediaViewer.fileIdx].decrypted,
-          liked: files[mediaViewer.fileIdx].liked
-        } : { name: "", type: "text" as const, decrypted: "", liked: false }}
+        file={
+          mediaViewer.fileIdx >= 0 && 
+          mediaViewer.fileIdx < indexedFiles.length && 
+          indexedFiles[mediaViewer.fileIdx].type !== "folder" 
+            ? {
+                name: indexedFiles[mediaViewer.fileIdx].name,
+                type: indexedFiles[mediaViewer.fileIdx].type as "image" | "text" | "video",
+                decrypted: indexedFiles[mediaViewer.fileIdx].decrypted,
+                liked: indexedFiles[mediaViewer.fileIdx].liked
+              } 
+            : { name: "", type: "text" as const, decrypted: "", liked: false }
+        }
         onPrev={() => navigatePrev(0)}
-        onNext={() => navigateNext(files.length - 1)}
+        onNext={() => navigateNext(indexedFiles.length - 1)}
       />
     </div>
   );
