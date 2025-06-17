@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
-import { FileGridItem } from "./FileGridItem";
-import { useCrypto } from "@/hooks/useCrypto";
-import { useFileVault } from "@/context/FileVaultContext";
-import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import MediaViewer from "./MediaViewer";
-import BulkActionsBar from "./BulkActionsBar";
+import { ChevronLeft, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import FileGridContent from "./FileGridContent";
+import BulkActionsBar from "./BulkActionsBar";
+import MediaViewer from "./MediaViewer";
+import { useCrypto } from "@/hooks/useCrypto";
 import { toast } from "@/hooks/use-toast";
 
 type EncryptedFileGridProps = {
@@ -14,461 +14,200 @@ type EncryptedFileGridProps = {
   files: FileEntry[];
   onDeleteFile: (idx: number) => void;
   onUpdateFile: (idx: number, updated: FileEntry) => void;
-  currentPath?: string[];
-  onPathChange?: (path: string[]) => void;
+  currentPath: string[];
+  onPathChange: (path: string[]) => void;
 };
 
 const ENCRYPT_PASS = "vault-password";
-
-// Real OpenDrive directory fetcher
-async function fetchOpenDriveFolders(
-  source: any,
-  path: string[] = []
-): Promise<FileEntry[]> {
-  if (!source || !source.username || !source.password || !source.rootFolder) return [];
-  let folderId = source.rootFolder;
-  if (folderId === "/") folderId = "0";
-  let currentFolderId = folderId;
-  try {
-    if (path.length > 0) {
-      for (const pname of path) {
-        const resp = await fetch("https://dev.opendrive.com/folder/list.json", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: source.username,
-            passwd: source.password,
-            folder_id: currentFolderId,
-          }),
-        });
-        if (!resp.ok) throw new Error("Failed to list folders (step)");
-        const json = await resp.json();
-        if (!json || !json.Folders) return [];
-        const found = json.Folders.find((f: any) => f.Name === pname);
-        if (!found) throw new Error(`Cannot find folder "${pname}" in OpenDrive`);
-        currentFolderId = found.FolderID;
-      }
-    }
-    const resp = await fetch("https://dev.opendrive.com/folder/list.json", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: source.username,
-        passwd: source.password,
-        folder_id: currentFolderId,
-      }),
-    });
-    if (!resp.ok) throw new Error("Failed to list OpenDrive directory.");
-    const json = await resp.json();
-    if (!json || !json.Folders) return [];
-    return json.Folders.map((f: any) => ({
-      name: f.Name,
-      type: "folder",
-      encrypted: "",
-      parent: path.length > 0 ? path[path.length - 1] : undefined,
-    }));
-  } catch (err: any) {
-    console.error("[OpenDrive] Failed to fetch folder(s):", err);
-    // Rethrow so we can show toast at callsite
-    throw err;
-  }
-}
 
 const EncryptedFileGrid = ({
   sourceIndex,
   files,
   onDeleteFile,
   onUpdateFile,
-  currentPath: controlledPath,
+  currentPath,
   onPathChange,
 }: EncryptedFileGridProps) => {
-  const [uncontrolledPath, setUncontrolledPath] = useState<string[]>([]);
-  const currentPath = controlledPath ?? uncontrolledPath;
-  const setCurrentPath = onPathChange ?? setUncontrolledPath;
+  const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
-  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [mediaViewer, setMediaViewer] = useState<{ fileIdx: number; open: boolean }>({ fileIdx: -1, open: false });
   const { encryptData, decryptData } = useCrypto(ENCRYPT_PASS);
-  const { setFilesPerSource, filesPerSource } = useFileVault();
-  const currentFolder = currentPath.length ? currentPath[currentPath.length - 1] : undefined;
 
-  // Detect config of this source to check for OpenDrive
-  const sourceConfigs = JSON.parse(window.sessionStorage.getItem("sources") || "[]");
-  const thisSource = sourceConfigs[sourceIndex];
+  const folders = useMemo(() => {
+    return files.filter(f => f.type === "folder" && (f.parent === undefined || f.parent === currentPath[currentPath.length - 1]));
+  }, [files, currentPath]);
 
-  // Fetch actual OpenDrive folders if configured (show toast on failure!)
-  useEffect(() => {
-    let mounted = true;
-    async function loadFoldersIfOpenDrive() {
-      if (!thisSource || thisSource.type !== "opendrive") return;
-      try {
-        const foundFolders = await fetchOpenDriveFolders(thisSource, currentPath);
-        setFilesPerSource((prev) => {
-          const prevArr = prev[sourceIndex] ?? [];
-          const nonFolder = prevArr.filter(f => f.type !== "folder" || (f.parent && f.parent !== currentFolder));
-          const newFolders: FileEntry[] = foundFolders.map(f => ({
-            name: f.name,
-            type: "folder",
-            encrypted: "",
-            parent: f.parent,
-          }));
-          const updated = [
-            ...nonFolder,
-            ...newFolders.filter(nf => !prevArr.some(f => f.type === "folder" && f.name === nf.name && f.parent === nf.parent)),
-          ];
-          return { ...prev, [sourceIndex]: updated as FileEntry[] };
-        });
-      } catch (err: any) {
-        // Show a toast error if OpenDrive connection failed
-        toast({ title: "OpenDrive Error", description: (err?.message || "Unknown error while fetching directories."), variant: "destructive" });
+  const filesInCurrent = useMemo(() => {
+    return files.filter(f => f.type !== "folder" && (f.parent === undefined ? currentPath.length === 0 : f.parent === currentPath[currentPath.length - 1]));
+  }, [files, currentPath]);
+
+  const allFolders = useMemo(() => {
+    return files.filter(f => f.type === "folder").map(f => f.name);
+  }, [files]);
+
+  const handleCheck = (idx: number, checked: boolean, e?: React.MouseEvent) => {
+    if (e?.shiftKey) {
+      // SHIFT-SELECT: select range
+      if (!selected.length) {
+        // Nothing selected yet, just select this
+        setSelected([idx]);
+        return;
       }
-    }
-    loadFoldersIfOpenDrive();
-    return () => { mounted = false; };
-    // eslint-disable-next-line
-  }, [sourceIndex, JSON.stringify(currentPath)]);
-
-  // Utility functions for getting visible files/folders
-  function getSubfolders() {
-    return files
-      .map((f, idx) => ({ ...f, __idx: idx }))
-      .filter(f =>
-        f.type === "folder" &&
-        ((currentFolder && f.parent === currentFolder) ||
-          (!currentFolder && !f.parent))
-      );
-  }
-  function getVisibleFiles() {
-    return files
-      .map((f, idx) => ({ ...f, __idx: idx }))
-      .filter(
-        f =>
-          f.type !== "folder" &&
-          ((currentFolder && f.parent === currentFolder) ||
-            (!currentFolder && !f.parent))
-      );
-  }
-  function getBreadcrumbs() {
-    return [
-      { label: "Root", value: undefined, idx: -1 },
-      ...currentPath.map((folder, i) => ({
-        label: folder,
-        value: folder,
-        idx: i
-      })),
-    ];
-  }
-  function handleCheck(idx: number, checked: boolean, event?: React.MouseEvent) {
-    if (event) event.stopPropagation();
-    setSelected(s => checked ? [...s, idx] : s.filter(i => i !== idx));
-  }
-  function handleMove(targetFolder: string) {
-    setFilesPerSource(prev => {
-      const old = prev[sourceIndex] ?? [];
-      return {
-        ...prev,
-        [sourceIndex]: old.map((entry, idx) =>
-          selected.includes(idx) && entry.type !== "folder"
-            ? { ...entry, parent: targetFolder }
-            : entry
-        ),
-      };
-    });
-    setSelected([]);
-  }
-  const allFolders = files.filter(f => f.type === "folder").map(f => f.name);
-  const folders = getSubfolders();
-  const filesInCurrent = getVisibleFiles();
-
-  // Bulk actions that will be passed to our bar
-  async function handleBulkDecrypt(idxList: number[]) {
-    const fileUpdates: { idx: number; updated: FileEntry }[] = [];
-    let errorCount = 0;
-    for (const idx of idxList) {
-      const file = files[idx];
-      if (file.type !== "folder" && !file.decrypted && file.encrypted) {
-        if (typeof file.encrypted !== "string" || !file.encrypted.includes(":")) {
-          errorCount++;
-          toast({ title: `File ${file.name} is missing or malformed ciphertext`, variant: "destructive" });
-          continue;
-        }
-        try {
-          const decryptedBuf = await decryptData(file.encrypted);
-          let content: string = "";
-          if (file.type === "text") content = new TextDecoder().decode(decryptedBuf);
-          else if (file.type === "image") {
-            const blob = new Blob([decryptedBuf]);
-            content = await new Promise<string>(resolve => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-          }
-          fileUpdates.push({ idx, updated: { ...file, decrypted: content } });
-          console.log(`[EncryptedFileGrid] Bulk decrypted ${file.name}`, { decrypted: content });
-        } catch (e) {
-          errorCount++;
-          toast({ title: `Decryption failed for ${file.name}`, variant: "destructive" });
-          console.error(`[EncryptedFileGrid] Failed to decrypt file ${file.name}:`, e);
-        }
-      }
-    }
-    if (fileUpdates.length > 0) {
-      setFilesPerSource(prev => {
-        const old = prev[sourceIndex] ?? [];
-        const patched = old.map((entry, idx) => {
-          const patch = fileUpdates.find(fu => fu.idx === idx);
-          return patch ? patch.updated : entry;
-        });
-        return { ...prev, [sourceIndex]: patched };
-      });
-      toast({ title: `Decryption done for ${fileUpdates.length} file(s)` });
-    }
-    if (fileUpdates.length === 0 && errorCount === 0) {
-      toast({ title: "No files decrypted.", variant: "default" });
-    }
-    setSelected([]);
-  }
-  function handleBulkDelete(idxList: number[]) {
-    setFilesPerSource(prev => {
-      const old = prev[sourceIndex] ?? [];
-      return {
-        ...prev,
-        [sourceIndex]: old.filter((_, idx) => !idxList.includes(idx)),
-      };
-    });
-    setSelected([]);
-  }
-  async function handleDecrypt(idx: number) {
-    const file = files[idx];
-    if (!file.encrypted || !file.encrypted.includes(":")) {
-      toast({ title: "File missing or malformed ciphertext", variant: "destructive" });
+      // Find the last selected index
+      const last = selected[selected.length - 1];
+      const start = Math.min(idx, last);
+      const end = Math.max(idx, last);
+      const range = Array.from({ length: end - start + 1 }, (_, i) => i + start);
+      setSelected(range);
       return;
     }
-    try {
-      const decryptedBuf = await decryptData(file.encrypted);
-      let content: string = "";
-      if (file.type === "text") content = new TextDecoder().decode(decryptedBuf);
-      else if (file.type === "image") {
-        const blob = new Blob([decryptedBuf]);
-        content = await new Promise<string>(resolve => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      }
-      onUpdateFile(idx, { ...file, decrypted: content });
-      toast({ title: `${file.name} decrypted successfully` });
-      console.log(`[EncryptedFileGrid] Decrypted ${file.name}`, { decrypted: content });
-    } catch (e) {
-      toast({ title: `Decryption failed for ${file.name}`, variant: "destructive" });
-      console.error(`[EncryptedFileGrid] Failed to decrypt file ${file.name}:`, e);
+
+    if (checked) {
+      setSelected([...selected, idx]);
+    } else {
+      setSelected(selected.filter(i => i !== idx));
     }
-  }
-  async function handleEncrypt(idx: number) {
+  };
+
+  const handleSelectAll = () => {
+    if (selected.length === files.length) {
+      setSelected([]);
+    } else {
+      setSelected(files.map((_, i) => i));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    selected.sort((a, b) => b - a); // Desc order
+    selected.forEach(idx => onDeleteFile(idx));
+    setSelected([]);
+  };
+
+  const handleEncrypt = async (idx: number) => {
     const file = files[idx];
-    if (file.type === "folder" || !file.decrypted) return;
+    if (!file) return;
+
     try {
-      let encrypted: string = "";
-      if (file.type === "text" && file.decrypted) {
-        encrypted = await encryptData(file.decrypted);
-      } else if (file.type === "image" && file.decrypted) {
+      if (file.type === "image" || file.type === "video") {
+        // Encrypt image/video
+        if (!file.decrypted) {
+          toast({ title: "No decrypted data to encrypt." });
+          return;
+        }
         const response = await fetch(file.decrypted);
-        const buf = await response.arrayBuffer();
-        encrypted = await encryptData(buf);
+        const buffer = await response.arrayBuffer();
+        const encrypted = await encryptData(buffer);
+        onUpdateFile(idx, { ...file, encrypted, decrypted: undefined });
+      } else {
+        // Encrypt text
+        const encrypted = await encryptData(file.decrypted || "");
+        onUpdateFile(idx, { ...file, encrypted, decrypted: undefined });
       }
-      onUpdateFile(idx, { ...file, decrypted: undefined, encrypted });
-    } catch {}
-  }
-  function onDragStart(e: React.DragEvent, idx: number) {
+      toast({ title: `"${file.name}" re-encrypted successfully.`, variant: "success" });
+    } catch (err) {
+      toast({ title: `Encryption failed for "${file.name}"`, description: String(err), variant: "destructive" });
+      console.error("Encryption failed:", err);
+    }
+  };
+
+  const handleDecrypt = () => {
+    toast({
+      title: "Not implemented",
+      description: "Decrypting multiple files at once is not yet implemented.",
+    });
+  };
+
+  // Drag and drop state + handlers
+  const [draggedIdx, setDraggedIdx] = useState(-1);
+
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
     setDraggedIdx(idx);
     e.dataTransfer.effectAllowed = "move";
-  }
-  function onDropOnFolder(folderName: string) {
-    if (draggedIdx == null) return;
-    setFilesPerSource(prev => {
-      const old = prev[sourceIndex] ?? [];
-      return {
-        ...prev,
-        [sourceIndex]: old.map((file, idx) =>
-          idx === draggedIdx && file.type !== "folder"
-            ? { ...file, parent: folderName }
-            : file
-        ),
-      };
-    });
-    setDraggedIdx(null);
-  }
-  function onDragEnd() {
-    setDraggedIdx(null);
-  }
+  };
 
-  // Thumbnail preview
-  function getThumbnail(file: FileEntry) {
-    if (file.decrypted) return file.decrypted;
-    if (file.type === "image") return "/placeholder.svg";
-    return undefined;
-  }
-  const selectedMediaFile = files[mediaViewer.fileIdx];
-  const canShowMediaViewer =
-    mediaViewer.open &&
-    selectedMediaFile &&
-    (selectedMediaFile.type === "image" || selectedMediaFile.type === "text");
+  const handleDragEnd = () => {
+    setDraggedIdx(-1);
+  };
+
+  const handleDropOnFolder = (folderName: string) => {
+    if (draggedIdx === -1) return;
+    const file = files[draggedIdx];
+    if (!file) return;
+    onUpdateFile(draggedIdx, { ...file, parent: folderName });
+  };
+
+  const filteredFiles = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return filesInCurrent;
+    return filesInCurrent.filter(file => file.name.toLowerCase().includes(term));
+  }, [filesInCurrent, searchTerm]);
 
   return (
-    <div>
-      {/* Breadcrumb */}
-      <div className="mb-3">
-        <Breadcrumb>
-          <BreadcrumbList>
-            {getBreadcrumbs().map((crumb, i, arr) => (
-              <span key={i} className="relative">
-                {/* For all but the last crumb, make it a drop target */}
-                <BreadcrumbItem>
-                  {i < arr.length - 1 ? (
-                    <BreadcrumbLink
-                      asChild
-                      className={`
-                        cursor-pointer
-                        text-cyan-400 hover:text-cyan-100
-                        px-3 py-2 rounded-lg
-                        hover:bg-cyan-900/30
-                        transition-all
-                        min-w-[52px] min-h-[32px] flex items-center justify-center
-                        dropzone-breadcrumb
-                        `}
-                      style={{ fontSize: "1.1rem", fontWeight: 500, border: "2px dashed transparent" }}
-                      // Drag & Drop handlers for breadcrumb (move to this folder)
-                      onClick={() => setCurrentPath(arr.slice(1, i + 1).map(c => c.label as string))}
-                      onDragOver={e => {
-                        e.preventDefault();
-                        e.currentTarget.style.borderColor = "#06b6d4";
-                        e.currentTarget.style.backgroundColor = "rgba(14, 116, 144, .10)";
-                      }}
-                      onDragEnter={e => {
-                        e.preventDefault();
-                        e.currentTarget.style.borderColor = "#06b6d4";
-                        e.currentTarget.style.backgroundColor = "rgba(14, 116, 144, .16)";
-                      }}
-                      onDragLeave={e => {
-                        e.currentTarget.style.borderColor = "transparent";
-                        e.currentTarget.style.backgroundColor = "";
-                      }}
-                      onDrop={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.currentTarget.style.borderColor = "transparent";
-                        e.currentTarget.style.backgroundColor = "";
-                        // Move the selected or dragged files to this folder level
-                        // Determine target path up to the clicked crumb
-                        const targetPath = arr.slice(1, i + 1).map(c => c.label as string);
-                        const targetFolder = targetPath.length > 0 ? targetPath[targetPath.length - 1] : undefined;
-                        if (draggedIdx !== null) {
-                          onDropOnFolder(targetFolder);
-                        } else if (selected.length > 0) {
-                          // Bulk move
-                          setFilesPerSource(prev => {
-                            const old = prev[sourceIndex] ?? [];
-                            return {
-                              ...prev,
-                              [sourceIndex]: old.map((entry, idx) =>
-                                selected.includes(idx) && entry.type !== "folder"
-                                  ? { ...entry, parent: targetFolder }
-                                  : entry
-                              ),
-                            };
-                          });
-                          setSelected([]);
-                        }
-                        // Change path (navigate)
-                        setCurrentPath(targetPath);
-                      }}
-                    >
-                      <span>
-                        {crumb.label}
-                      </span>
-                    </BreadcrumbLink>
-                  ) : (
-                    <span
-                      className="font-semibold text-cyan-100 px-3 py-2 rounded-lg min-w-[52px] min-h-[32px] flex items-center justify-center"
-                      style={{ fontSize: "1.1rem" }}
-                    >
-                      {crumb.label}
-                    </span>
-                  )}
-                </BreadcrumbItem>
-                {i < arr.length - 1 && <BreadcrumbSeparator />}
-              </span>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
+    <div className="w-full">
+      {/* Breadcrumb navigation */}
+      <div className="flex items-center gap-2 mb-4">
+        {currentPath.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => onPathChange(currentPath.slice(0, -1))}>
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        )}
+        <div className="text-sm text-cyan-400 font-mono">
+          {currentPath.length === 0 ? "Root" : currentPath.join(" / ")}
+        </div>
       </div>
-      {/* Bulk Actions Bar */}
-      <BulkActionsBar
-        files={files}
-        selected={selected}
-        setSelected={setSelected}
-        allFolders={allFolders}
-        onBulkDecrypt={handleBulkDecrypt}
-        onBulkDelete={handleBulkDelete}
-        onMove={handleMove}
-      />
-      {/* Main grid */}
+
+      {/* Search and bulk actions */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-cyan-500" />
+          <Input
+            type="search"
+            placeholder="Search files..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="bg-cyan-950/30 text-cyan-200 border-cyan-800 focus-visible:ring-cyan-600"
+          />
+        </div>
+        <BulkActionsBar
+          selectedCount={selected.length}
+          onSelectAll={handleSelectAll}
+          onDelete={handleBulkDelete}
+          onEncrypt={handleDecrypt}
+        />
+      </div>
+
       <FileGridContent
         folders={folders}
-        filesInCurrent={filesInCurrent}
+        filesInCurrent={filteredFiles}
         selected={selected}
         handleCheck={handleCheck}
-        setCurrentPath={setCurrentPath}
+        setCurrentPath={onPathChange}
         currentPath={currentPath}
         allFolders={allFolders}
         onDeleteFile={onDeleteFile}
-        onDecrypt={handleDecrypt}
+        onDecrypt={() => { }}
         onEncrypt={handleEncrypt}
-        onDragStart={onDragStart}
-        onDropOnFolder={onDropOnFolder}
-        onDragEnd={onDragEnd}
+        onDragStart={handleDragStart}
+        onDropOnFolder={handleDropOnFolder}
+        onDragEnd={handleDragEnd}
         setMediaViewer={setMediaViewer}
+        onUpdateFile={onUpdateFile}
       />
-      {/* Media Viewer */}
-      {canShowMediaViewer && selectedMediaFile.decrypted ? (
-        <MediaViewer
-          open={mediaViewer.open}
-          setOpen={(open: boolean) => setMediaViewer(m => ({ ...m, open }))}
-          file={{
-            name: selectedMediaFile.name,
-            type: selectedMediaFile.type as "image" | "text",
-            decrypted: selectedMediaFile.decrypted ||
-              (selectedMediaFile.type === "image" ? getThumbnail(selectedMediaFile) : ""),
-            liked: selectedMediaFile.liked,
-          }}
-          // CYCLE behavior: wrap around if left/right at ends
-          onPrev={() => {
-            const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-            let i = currentIdx - 1;
-            while (i !== currentIdx) {
-              if (i < 0) i = filesInCurrent.length - 1;
-              if (filesInCurrent[i].decrypted && (filesInCurrent[i].type === "image" || filesInCurrent[i].type === "text")) {
-                setMediaViewer({ fileIdx: filesInCurrent[i].__idx, open: true });
-                break;
-              }
-              i--;
-              if (i < 0) i = filesInCurrent.length - 1; // wrap
-            }
-          }}
-          onNext={() => {
-            const currentIdx = filesInCurrent.findIndex(f => f.__idx === mediaViewer.fileIdx);
-            let i = (currentIdx + 1) % filesInCurrent.length;
-            while (i !== currentIdx) {
-              if (filesInCurrent[i].decrypted && (filesInCurrent[i].type === "image" || filesInCurrent[i].type === "text")) {
-                setMediaViewer({ fileIdx: filesInCurrent[i].__idx, open: true });
-                break;
-              }
-              i = (i + 1) % filesInCurrent.length;
-            }
-          }}
-        />
-      ) : null}
+
+      <MediaViewer
+        open={mediaViewer.open}
+        setOpen={open => setMediaViewer({ ...mediaViewer, open })}
+        file={files[mediaViewer.fileIdx]}
+        onPrev={() => {
+          const prevIdx = Math.max(0, mediaViewer.fileIdx - 1);
+          setMediaViewer({ fileIdx: prevIdx, open: true });
+        }}
+        onNext={() => {
+          const nextIdx = Math.min(files.length - 1, mediaViewer.fileIdx + 1);
+          setMediaViewer({ fileIdx: nextIdx, open: true });
+        }}
+      />
     </div>
   );
 };

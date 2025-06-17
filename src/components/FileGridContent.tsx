@@ -20,6 +20,7 @@ type FileGridContentProps = {
   onDropOnFolder: (folderName: string) => void;
   onDragEnd: () => void;
   setMediaViewer: (view: { fileIdx: number; open: boolean }) => void;
+  onUpdateFile: (idx: number, updatedFile: any) => void;
 };
 
 const ENCRYPT_PASS = "vault-password";
@@ -39,6 +40,7 @@ const FileGridContent = ({
   onDropOnFolder,
   onDragEnd,
   setMediaViewer,
+  onUpdateFile,
 }: FileGridContentProps) => {
   const { decryptData } = useCrypto(ENCRYPT_PASS);
 
@@ -88,8 +90,9 @@ const FileGridContent = ({
         isObjectUrl: decryptedDataUrl.startsWith('blob:')
       });
 
-      // Update the file with decrypted data
-      file.decrypted = decryptedDataUrl;
+      // Update the file with decrypted data using the proper update handler
+      const updatedFile = { ...file, decrypted: decryptedDataUrl };
+      onUpdateFile(file.__idx, updatedFile);
       
       toast({
         title: "File decrypted!",
