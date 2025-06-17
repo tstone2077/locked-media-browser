@@ -33,12 +33,18 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
 
   // Reset zoom/pan when image changes or viewer opens/closes
   const lastFile = useRef(file?.decrypted);
+  
+  useEffect(() => {
+    if (!open) return;
+    
+    if (lastFile.current !== file?.decrypted) {
+      lastFile.current = file?.decrypted;
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+    }
+  }, [open, file?.decrypted]);
+
   if (!open) return null;
-  if (lastFile.current !== file?.decrypted) {
-    lastFile.current = file?.decrypted;
-    setZoom(1);
-    setOffset({ x: 0, y: 0 });
-  }
 
   // Wheel to zoom (only for images)
   function handleWheelImage(e: React.WheelEvent<HTMLDivElement>) {
