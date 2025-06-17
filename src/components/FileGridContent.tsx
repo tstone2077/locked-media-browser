@@ -3,6 +3,7 @@ import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
 import { toast } from "@/hooks/use-toast";
+import { useCrypto } from "@/hooks/useCrypto";
 
 type FileGridContentProps = {
   folders: any[];
@@ -21,6 +22,8 @@ type FileGridContentProps = {
   setMediaViewer: (view: { fileIdx: number; open: boolean }) => void;
 };
 
+const ENCRYPT_PASS = "vault-password";
+
 const FileGridContent = ({
   folders,
   filesInCurrent,
@@ -37,6 +40,8 @@ const FileGridContent = ({
   onDragEnd,
   setMediaViewer,
 }: FileGridContentProps) => {
+  const { decryptData } = useCrypto(ENCRYPT_PASS);
+
   // Helper to validate encrypted string
   function isValidCiphertext(ciphertext: string) {
     if (typeof ciphertext !== "string") return false;
@@ -45,7 +50,7 @@ const FileGridContent = ({
     return Boolean(iv && ct);
   }
 
-  // Enhanced direct decryption handler with toast feedback
+  // Enhanced direct decryption handler with proper video handling
   const handleDecrypt = async (file: any) => {
     try {
       if (!file.encrypted || !isValidCiphertext(file.encrypted)) {
@@ -56,14 +61,49 @@ const FileGridContent = ({
         });
         return;
       }
-      // Attempt decryption
-      await onDecrypt(file.__idx);
+
+      console.log(`[FileGridContent] Attempting to decrypt ${file.name}`, { 
+        type: file.type, 
+        hasEncrypted: !!file.encrypted 
+      });
+
+      // Decrypt the data
+      const decryptedBuffer = await decryptData(file.encrypted);
+      
+      let decryptedDataUrl: string;
+      
+      if (file.type === "image" || file.type === "video") {
+        // For media files, convert ArrayBuffer to blob and create object URL
+        const mimeType = file.type === "image" ? "image/png" : "video/mp4";
+        const blob = new Blob([decryptedBuffer], { type: mimeType });
+        decryptedDataUrl = URL.createObjectURL(blob);
+      } else {
+        // For text files, convert to string
+        const decoder = new TextDecoder();
+        decryptedDataUrl = decoder.decode(decryptedBuffer);
+      }
+
+      console.log(`[FileGridContent] Successfully decrypted ${file.name}`, { 
+        decryptedLength: decryptedDataUrl.length,
+        isObjectUrl: decryptedDataUrl.startsWith('blob:')
+      });
+
+      // Update the file with decrypted data
+      file.decrypted = decryptedDataUrl;
+      
       toast({
         title: "File decrypted!",
         description: `"${file.name}" successfully decrypted.`,
         variant: "success",
       });
+
+      // If it's a media file, open the viewer immediately
+      if (file.type === "image" || file.type === "video") {
+        setMediaViewer({ fileIdx: file.__idx, open: true });
+      }
+      
     } catch (err) {
+      console.error(`[FileGridContent] Decryption failed for ${file.name}:`, err);
       toast({
         title: "Decryption Failed",
         description: (err as Error)?.message || "Failed to decrypt the file.",
