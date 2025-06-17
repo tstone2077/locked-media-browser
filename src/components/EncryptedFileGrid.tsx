@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { ChevronLeft, Search } from "lucide-react";
@@ -69,17 +70,27 @@ const EncryptedFileGrid = ({
     }
   };
 
-  const handleSelectAll = () => {
-    if (selected.length === files.length) {
-      setSelected([]);
-    } else {
-      setSelected(files.map((_, i) => i));
-    }
+  const handleBulkDelete = (indexes: number[]) => {
+    indexes.sort((a, b) => b - a); // Desc order
+    indexes.forEach(idx => onDeleteFile(idx));
+    setSelected([]);
   };
 
-  const handleBulkDelete = () => {
-    selected.sort((a, b) => b - a); // Desc order
-    selected.forEach(idx => onDeleteFile(idx));
+  const handleBulkDecrypt = async (indexes: number[]) => {
+    // Placeholder for bulk decrypt functionality
+    toast({
+      title: "Bulk decrypt",
+      description: `Decrypting ${indexes.length} files...`,
+    });
+  };
+
+  const handleMove = (target: string) => {
+    selected.forEach(idx => {
+      const file = files[idx];
+      if (file) {
+        onUpdateFile(idx, { ...file, parent: target });
+      }
+    });
     setSelected([]);
   };
 
@@ -108,13 +119,6 @@ const EncryptedFileGrid = ({
       toast({ title: `Encryption failed for "${file.name}"`, description: String(err), variant: "destructive" });
       console.error("Encryption failed:", err);
     }
-  };
-
-  const handleDecrypt = () => {
-    toast({
-      title: "Not implemented",
-      description: "Decrypting multiple files at once is not yet implemented.",
-    });
   };
 
   // Drag and drop state + handlers
@@ -170,10 +174,13 @@ const EncryptedFileGrid = ({
           />
         </div>
         <BulkActionsBar
-          selectedCount={selected.length}
-          onSelectAll={handleSelectAll}
-          onDelete={handleBulkDelete}
-          onEncrypt={handleDecrypt}
+          files={files}
+          selected={selected}
+          setSelected={setSelected}
+          allFolders={allFolders}
+          onBulkDecrypt={handleBulkDecrypt}
+          onBulkDelete={handleBulkDelete}
+          onMove={handleMove}
         />
       </div>
 
@@ -198,7 +205,12 @@ const EncryptedFileGrid = ({
       <MediaViewer
         open={mediaViewer.open}
         setOpen={open => setMediaViewer({ ...mediaViewer, open })}
-        file={files[mediaViewer.fileIdx]}
+        file={files[mediaViewer.fileIdx] && files[mediaViewer.fileIdx].type !== "folder" ? {
+          name: files[mediaViewer.fileIdx].name,
+          type: files[mediaViewer.fileIdx].type as "image" | "text" | "video",
+          decrypted: files[mediaViewer.fileIdx].decrypted,
+          liked: files[mediaViewer.fileIdx].liked
+        } : { name: "", type: "text" as const, decrypted: "", liked: false }}
         onPrev={() => {
           const prevIdx = Math.max(0, mediaViewer.fileIdx - 1);
           setMediaViewer({ fileIdx: prevIdx, open: true });
