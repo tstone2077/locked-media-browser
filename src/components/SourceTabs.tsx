@@ -18,6 +18,9 @@ function isFileImage(file: File) {
 function isFileText(file: File) {
   return file.type.startsWith("text/");
 }
+function isFileVideo(file: File) {
+  return file.type.startsWith("video/");
+}
 
 const initialFilesPerSource: Record<number, FileEntry[]> = {};
 
@@ -115,9 +118,9 @@ const SourceTabs = () => {
     // Helper function to check if text is a valid dataUrl
     const isDataUrl = (text: string) =>
       typeof text === "string" &&
-      (text.startsWith("data:image/") || text.startsWith("data:text/"));
+      (text.startsWith("data:image/") || text.startsWith("data:text/") || text.startsWith("data:video/"));
 
-    // 1. Try file drop (image/text only)
+    // 1. Try file drop (image/text/video only)
     if (files && files.length > 0) {
       const file = files[0];
       const reader = new FileReader();
@@ -135,13 +138,13 @@ const SourceTabs = () => {
         }
       };
 
-      // Only support image and text files for now
-      if (isFileImage(file) || isFileText(file)) {
+      // Support image, text, and video files
+      if (isFileImage(file) || isFileText(file) || isFileVideo(file)) {
         reader.readAsDataURL(file);
       } else {
         toast({
           title: "Unsupported file type",
-          description: "Only image and text files are supported for now.",
+          description: "Only image, text, and video files are supported.",
           variant: "destructive"
         });
       }
@@ -165,20 +168,36 @@ const SourceTabs = () => {
     // 3. If neither, show error
     toast({
       title: "Unsupported drop",
-      description: "Please drop an image/text file or a valid data URL.",
+      description: "Please drop an image, text, or video file or a valid data URL.",
       variant: "destructive"
     });
   }
 
   async function handleAddFile(dataUrl: string) {
     const isImage = dataUrl.startsWith("data:image/");
-    const name = isImage ? `Image-${Date.now()}.png` : `Text-${Date.now()}.txt`;
+    const isVideo = dataUrl.startsWith("data:video/");
+    const isText = dataUrl.startsWith("data:text/");
+    
+    let name: string;
+    let type: "image" | "text" | "video";
+    
+    if (isImage) {
+      name = `Image-${Date.now()}.png`;
+      type = "image";
+    } else if (isVideo) {
+      name = `Video-${Date.now()}.mp4`;
+      type = "video";
+    } else {
+      name = `Text-${Date.now()}.txt`;
+      type = "text";
+    }
+    
     setEncryptionFileName(name);
     setIsEncrypting(true);
     try {
       let encrypted: string;
-      if (isImage) {
-        // For image, need to convert dataUrl -> ArrayBuffer
+      if (isImage || isVideo) {
+        // For image/video, need to convert dataUrl -> ArrayBuffer
         const response = await fetch(dataUrl);
         const buf = await response.arrayBuffer();
         encrypted = await encryptData(buf);
@@ -198,7 +217,7 @@ const SourceTabs = () => {
           ...prev,
           [active]: [
             ...sourceFiles,
-            { name, type: isImage ? "image" : "text", encrypted, parent: currentFolder }
+            { name, type, encrypted, parent: currentFolder }
           ]
         };
       });
@@ -300,7 +319,7 @@ const SourceTabs = () => {
           <div className="text-cyan-50 text-2xl font-bold mb-2">
             Drop file to add to vault
           </div>
-          <div className="text-cyan-100 font-mono text-base opacity-90">Supported: Images, Text</div>
+          <div className="text-cyan-100 font-mono text-base opacity-90">Supported: Images, Text, Videos</div>
         </div>
       )}
       <div className={`flex items-center gap-4 mb-6 ${isDragOver ? "opacity-40 pointer-events-none" : ""}`}>

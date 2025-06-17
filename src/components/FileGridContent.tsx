@@ -1,3 +1,4 @@
+
 import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
@@ -109,7 +110,7 @@ const FileGridContent = ({
           key={file.name + file.__idx}
           className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
           onClick={async () => {
-            if (file.type === "image" || file.type === "text") {
+            if (file.type === "image" || file.type === "text" || file.type === "video") {
               if (file.decrypted) {
                 setMediaViewer({ fileIdx: file.__idx, open: true });
               } else {

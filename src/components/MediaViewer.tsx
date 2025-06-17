@@ -1,3 +1,4 @@
+
 import React from "react";
 import { X, ArrowLeft, ArrowRight, Lock } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
@@ -8,7 +9,7 @@ type Props = {
   setOpen: (open: boolean) => void;
   file: {
     name: string;
-    type: "image" | "text";
+    type: "image" | "text" | "video";
     decrypted?: string;
     liked?: boolean;
   };
@@ -39,9 +40,9 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
     setOffset({ x: 0, y: 0 });
   }
 
-  // Wheel to zoom
+  // Wheel to zoom (only for images)
   function handleWheelImage(e: React.WheelEvent<HTMLDivElement>) {
-    // Do not zoom text
+    // Do not zoom text or video
     if (file.type !== "image" || !file.decrypted) return;
     e.preventDefault();
 
@@ -62,7 +63,7 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
     }
   }
 
-  // Mouse drag for panning (when over-zoomed)
+  // Mouse drag for panning (when over-zoomed, only for images)
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (file.type !== "image" || zoom === 1) return;
     setDragging(true);
@@ -86,10 +87,12 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
     window.removeEventListener("mouseup", handleMouseUp);
   }
 
-  // Double click to reset
+  // Double click to reset (only for images)
   function handleDoubleClick() {
-    setZoom(1);
-    setOffset({ x: 0, y: 0 });
+    if (file.type === "image") {
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+    }
   }
 
   // Prevent scroll on overlay (otherwise background scrolls)
@@ -97,9 +100,9 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
     e.preventDefault();
   }
 
-  // -- NEW: check if we're showing a locked image (i.e., fallback/placeholder image) --
-  const isImageLocked =
-    file.type === "image" && (!file.decrypted || file.decrypted === "/placeholder.svg");
+  // Check if we're showing a locked media (i.e., fallback/placeholder)
+  const isMediaLocked =
+    (file.type === "image" || file.type === "video") && (!file.decrypted || file.decrypted === "/placeholder.svg");
 
   React.useEffect(() => {
     if (!open) return;
@@ -170,7 +173,7 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
                   draggable={false}
                   className={
                     "shadow-lg border border-cyan-900/60 bg-black rounded-lg animate-fade-in" +
-                    (isImageLocked ? " opacity-60 blur" : "")
+                    (isMediaLocked ? " opacity-60 blur" : "")
                   }
                   style={{
                     display: "block",
@@ -186,7 +189,7 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
                 />
                 {/* Helper overlay for zoom state */}
                 <div className="absolute left-4 bottom-3 bg-black/50 text-cyan-100 rounded px-3 py-1 text-xs select-none pointer-events-none">
-                  {isImageLocked
+                  {isMediaLocked
                     ? "Encrypted preview (unlock to view in full quality)"
                     : `Zoom: ${zoom.toFixed(2)}x | ${zoom > 1 ? "Drag to pan, double-click to reset" : "Scroll to zoom"}`}
                 </div>
@@ -200,6 +203,32 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
                   draggable={false}
                 />
                 <div className="text-cyan-200 text-xl font-semibold">This image is encrypted</div>
+                <div className="mt-2 text-cyan-300 text-sm">Unlock with your password to view.</div>
+              </div>
+            )
+          ) : file.type === "video" ? (
+            file.decrypted ? (
+              <div className="relative flex items-center justify-center w-full h-full">
+                <video
+                  src={file.decrypted}
+                  controls
+                  className="shadow-lg border border-cyan-900/60 bg-black rounded-lg animate-fade-in max-w-[94vw] max-h-[80vh]"
+                  style={{
+                    boxShadow: "0 8px 42px 4px #090c2c66"
+                  }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center w-full">
+                <img
+                  src="/placeholder.svg"
+                  alt="Locked/Encrypted"
+                  className="w-32 h-32 opacity-70 mb-4"
+                  draggable={false}
+                />
+                <div className="text-cyan-200 text-xl font-semibold">This video is encrypted</div>
                 <div className="mt-2 text-cyan-300 text-sm">Unlock with your password to view.</div>
               </div>
             )

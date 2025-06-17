@@ -4,7 +4,7 @@ import { getFilesPerSourceFromIDB, setFilesPerSourceInIDB } from "@/lib/indexedd
 
 export type FileEntry = {
   name: string;
-  type: "image" | "text" | "folder";
+  type: "image" | "text" | "folder" | "video";
   encrypted: string; // Ciphertext as base64
   decrypted?: string; // Decrypted text/dataurl
   liked?: boolean;
