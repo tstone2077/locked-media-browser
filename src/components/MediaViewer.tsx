@@ -1,7 +1,5 @@
-
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { X, ArrowLeft, ArrowRight, Lock } from "lucide-react";
-import { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -33,16 +31,37 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
 
   // Reset zoom/pan when image changes or viewer opens/closes
   const lastFile = useRef(file?.decrypted);
-  
+
   useEffect(() => {
     if (!open) return;
-    
+
     if (lastFile.current !== file?.decrypted) {
       lastFile.current = file?.decrypted;
       setZoom(1);
       setOffset({ x: 0, y: 0 });
     }
   }, [open, file?.decrypted]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Keyboard events: left/right for navigation & ESC to close
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        onPrev && onPrev();
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        onNext && onNext();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onPrev, onNext, setOpen]);
 
   if (!open) return null;
 
@@ -109,27 +128,6 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext }: Props) => {
   // Check if we're showing a locked media (i.e., fallback/placeholder)
   const isMediaLocked =
     (file.type === "image" || file.type === "video") && (!file.decrypted || file.decrypted === "/placeholder.svg");
-
-  React.useEffect(() => {
-    if (!open) return;
-    // Keyboard events: left/right for navigation & ESC to close
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        onPrev && onPrev();
-      }
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        onNext && onNext();
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setOpen(false);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onPrev, onNext, setOpen]);
 
   return (
     // Full screen overlay, no padding
