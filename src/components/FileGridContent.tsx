@@ -1,9 +1,9 @@
-
 import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
 import { toast } from "@/hooks/use-toast";
 import { useCrypto } from "@/hooks/useCrypto";
+import { generateVideoThumbnail } from "@/utils/videoThumbnail";
 
 type FileGridContentProps = {
   folders: any[];
@@ -90,8 +90,23 @@ const FileGridContent = ({
         isObjectUrl: decryptedDataUrl.startsWith('blob:')
       });
 
+      // Generate thumbnail for videos
+      let thumbnail: string | undefined;
+      if (file.type === "video") {
+        try {
+          thumbnail = await generateVideoThumbnail(decryptedDataUrl);
+          console.log(`[FileGridContent] Generated thumbnail for ${file.name}`);
+        } catch (err) {
+          console.warn(`[FileGridContent] Failed to generate thumbnail for ${file.name}:`, err);
+        }
+      }
+
       // Update the file with decrypted data using the proper update handler
-      const updatedFile = { ...file, decrypted: decryptedDataUrl };
+      const updatedFile = { 
+        ...file, 
+        decrypted: decryptedDataUrl,
+        ...(thumbnail && { thumbnail })
+      };
       onUpdateFile(file.__idx, updatedFile);
       
       toast({

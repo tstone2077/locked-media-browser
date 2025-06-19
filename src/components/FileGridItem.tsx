@@ -2,7 +2,7 @@ import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
-import { FolderPlus, FilePlus, Lock, Image as ImageIcon, Trash2, Folder, Move, Unlock } from "lucide-react";
+import { FolderPlus, FilePlus, Lock, Image as ImageIcon, Trash2, Folder, Move, Unlock, Video } from "lucide-react";
 
 type FileGridItemProps = {
   file: FileEntry;
@@ -73,6 +73,19 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
                   className="w-16 h-16 object-cover rounded animate-fade-in"
                   draggable={false}
                 />
+              ) : (
+                <Lock className="w-12 h-12 text-cyan-600 animate-pulse" />
+              )
+            ) : file.type === "video" ? (
+              file.thumbnail ? (
+                <img
+                  src={file.thumbnail}
+                  alt={file.name}
+                  className="w-16 h-16 object-cover rounded animate-fade-in relative"
+                  draggable={false}
+                />
+              ) : file.decrypted ? (
+                <Video className="w-12 h-12 text-cyan-200" />
               ) : (
                 <Lock className="w-12 h-12 text-cyan-600 animate-pulse" />
               )

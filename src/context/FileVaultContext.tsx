@@ -7,6 +7,7 @@ export type FileEntry = {
   type: "image" | "text" | "folder" | "video";
   encrypted: string; // Ciphertext as base64
   decrypted?: string; // Decrypted text/dataurl
+  thumbnail?: string; // Video thumbnail URL
   liked?: boolean;
   parent?: string; // The name of parent folder, or undefined/root
 };

@@ -1,9 +1,9 @@
-
 import React, { useRef, useState, useEffect } from "react";
 import { X, ArrowLeft, ArrowRight, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCrypto } from "@/hooks/useCrypto";
 import { toast } from "@/hooks/use-toast";
+import { generateVideoThumbnail } from "@/utils/videoThumbnail";
 
 type Props = {
   open: boolean;
@@ -120,9 +120,24 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile }: Prop
         isObjectUrl: decryptedDataUrl.startsWith('blob:')
       });
 
-      // Update the file with decrypted data
+      // Generate thumbnail for videos
+      let thumbnail: string | undefined;
+      if (file.type === "video") {
+        try {
+          thumbnail = await generateVideoThumbnail(decryptedDataUrl);
+          console.log(`[MediaViewer] Generated thumbnail for ${file.name}`);
+        } catch (err) {
+          console.warn(`[MediaViewer] Failed to generate thumbnail for ${file.name}:`, err);
+        }
+      }
+
+      // Update the file with decrypted data and thumbnail
       if (onUpdateFile) {
-        const updatedFile = { ...file, decrypted: decryptedDataUrl };
+        const updatedFile = { 
+          ...file, 
+          decrypted: decryptedDataUrl,
+          ...(thumbnail && { thumbnail })
+        };
         onUpdateFile(file.__idx, updatedFile);
       }
       
