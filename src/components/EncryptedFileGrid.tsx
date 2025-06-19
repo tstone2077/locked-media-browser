@@ -88,6 +88,29 @@ const EncryptedFileGrid = ({
     });
   }, [filteredFiles, files]);
 
+  // Get all non-folder files for navigation
+  const allMediaFiles = useMemo(() => {
+    return indexedFiles.filter(f => f.type !== "folder");
+  }, [indexedFiles]);
+
+  // Find current file for media viewer
+  const currentFile = useMemo(() => {
+    if (mediaViewer.fileIdx >= 0 && mediaViewer.fileIdx < allMediaFiles.length) {
+      const file = allMediaFiles[mediaViewer.fileIdx];
+      if (file && file.type !== "folder") {
+        return {
+          name: file.name,
+          type: file.type as "image" | "text" | "video",
+          decrypted: file.decrypted,
+          liked: file.liked,
+          encrypted: file.encrypted,
+          __idx: file.__idx
+        };
+      }
+    }
+    return { name: "", type: "text" as const, decrypted: "", liked: false };
+  }, [mediaViewer.fileIdx, allMediaFiles]);
+
   return (
     <div className="w-full">
       <FileNavigation currentPath={currentPath} onPathChange={onPathChange} />
@@ -126,20 +149,10 @@ const EncryptedFileGrid = ({
       <MediaViewer
         open={mediaViewer.open}
         setOpen={open => setMediaViewer({ ...mediaViewer, open })}
-        file={
-          mediaViewer.fileIdx >= 0 && 
-          mediaViewer.fileIdx < indexedFiles.length && 
-          indexedFiles[mediaViewer.fileIdx].type !== "folder" 
-            ? {
-                name: indexedFiles[mediaViewer.fileIdx].name,
-                type: indexedFiles[mediaViewer.fileIdx].type as "image" | "text" | "video",
-                decrypted: indexedFiles[mediaViewer.fileIdx].decrypted,
-                liked: indexedFiles[mediaViewer.fileIdx].liked
-              } 
-            : { name: "", type: "text" as const, decrypted: "", liked: false }
-        }
+        file={currentFile}
         onPrev={() => navigatePrev(0)}
-        onNext={() => navigateNext(indexedFiles.length - 1)}
+        onNext={() => navigateNext(allMediaFiles.length - 1)}
+        onUpdateFile={onUpdateFile}
       />
     </div>
   );
