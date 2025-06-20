@@ -10,6 +10,7 @@ export type FileEntry = {
   thumbnail?: string; // Video thumbnail URL
   liked?: boolean;
   parent?: string; // The name of parent folder, or undefined/root
+  tags?: string[]; // Array of tags for the file
 };
 
 type FileVaultContextType = {

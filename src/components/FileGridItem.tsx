@@ -1,8 +1,10 @@
+
 import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
-import { FolderPlus, FilePlus, Lock, Image as ImageIcon, Trash2, Folder, Move, Unlock, Video } from "lucide-react";
+import { FolderPlus, FilePlus, Lock, Image as ImageIcon, Trash2, Folder, Move, Unlock, Video, Tag } from "lucide-react";
 
 type FileGridItemProps = {
   file: FileEntry;
@@ -12,6 +14,7 @@ type FileGridItemProps = {
   onDelete?: () => void;
   onDecrypt?: () => void;
   onEncrypt?: () => void;
+  onEditTags?: () => void;
   onDragStart?: (e: React.DragEvent, file: FileEntry) => void;
   onDrop?: (file: FileEntry) => void;
   onDragOver?: (e: React.DragEvent) => void;
@@ -27,6 +30,7 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
   onDelete,
   onDecrypt,
   onEncrypt,
+  onEditTags,
   onDragStart,
   onDrop,
   onDragOver,
@@ -95,7 +99,28 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
               <Lock className="w-12 h-12 text-cyan-600 animate-pulse" />
             )}
           </div>
-          <div className="text-base font-semibold text-cyan-200 truncate">{file.name}</div>
+          
+          <div className="text-base font-semibold text-cyan-200 truncate mb-2">{file.name}</div>
+          
+          {/* Tags */}
+          {file.tags && file.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 justify-center">
+              {file.tags.slice(0, 3).map(tag => (
+                <Badge 
+                  key={tag} 
+                  variant="secondary" 
+                  className="text-xs bg-cyan-900/50 text-cyan-300"
+                >
+                  {tag}
+                </Badge>
+              ))}
+              {file.tags.length > 3 && (
+                <Badge variant="secondary" className="text-xs bg-cyan-900/50 text-cyan-300">
+                  +{file.tags.length - 3}
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
@@ -109,6 +134,9 @@ export const FileGridItem: React.FC<FileGridItemProps> = ({
             <Lock className="w-4 h-4 mr-2" /> Encrypt
           </ContextMenuItem>
         )}
+        <ContextMenuItem onClick={onEditTags}>
+          <Tag className="w-4 h-4 mr-2" /> Edit Tags
+        </ContextMenuItem>
         <ContextMenuItem onClick={onMove}>
           <Move className="w-4 h-4 mr-2" /> Move
         </ContextMenuItem>

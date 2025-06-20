@@ -3,9 +3,11 @@ import React, { useState, useMemo } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import FileNavigation from "./FileNavigation";
 import FileSearch from "./FileSearch";
+import TagFilter from "./TagFilter";
 import BulkActionsBar from "./BulkActionsBar";
 import FileGridContent from "./FileGridContent";
 import MediaViewer from "./MediaViewer";
+import TagEditModal from "./TagEditModal";
 import { useMediaViewer } from "@/hooks/useMediaViewer";
 import { useFileOperations } from "@/hooks/useFileOperations";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
@@ -28,6 +30,13 @@ const EncryptedFileGrid = ({
   onPathChange,
 }: EncryptedFileGridProps) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagFilterMode, setTagFilterMode] = useState<"and" | "or">("or");
+  const [tagEditModal, setTagEditModal] = useState<{ open: boolean; file: FileEntry | null; fileIdx: number }>({
+    open: false,
+    file: null,
+    fileIdx: -1
+  });
   
   // Always call hooks in the same order
   const mediaViewerHook = useMediaViewer();
@@ -64,10 +73,28 @@ const EncryptedFileGrid = ({
   }, [files]);
 
   const filteredFiles = useMemo(() => {
+    let result = filesInCurrent;
+    
+    // Apply search filter
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return filesInCurrent;
-    return filesInCurrent.filter(file => file.name.toLowerCase().includes(term));
-  }, [filesInCurrent, searchTerm]);
+    if (term) {
+      result = result.filter(file => file.name.toLowerCase().includes(term));
+    }
+    
+    // Apply tag filter
+    if (selectedTags.length > 0) {
+      result = result.filter(file => {
+        const fileTags = file.tags || [];
+        if (tagFilterMode === "and") {
+          return selectedTags.every(tag => fileTags.includes(tag));
+        } else {
+          return selectedTags.some(tag => fileTags.includes(tag));
+        }
+      });
+    }
+    
+    return result;
+  }, [filesInCurrent, searchTerm, selectedTags, tagFilterMode]);
 
   // Add index property to files for proper tracking
   const indexedFiles = useMemo(() => {
@@ -111,12 +138,36 @@ const EncryptedFileGrid = ({
     return { name: "", type: "text" as const, decrypted: "", liked: false };
   }, [mediaViewer.fileIdx, allMediaFiles]);
 
+  const handleEditTags = (fileIdx: number) => {
+    const file = files[fileIdx];
+    if (file) {
+      setTagEditModal({ open: true, file, fileIdx });
+    }
+  };
+
+  const handleSaveTags = (tags: string[]) => {
+    if (tagEditModal.fileIdx >= 0) {
+      const updatedFile = { ...files[tagEditModal.fileIdx], tags };
+      onUpdateFile(tagEditModal.fileIdx, updatedFile);
+    }
+    setTagEditModal({ open: false, file: null, fileIdx: -1 });
+  };
+
   return (
     <div className="w-full">
       <FileNavigation currentPath={currentPath} onPathChange={onPathChange} />
 
-      <div className="flex justify-between items-center mb-4">
-        <FileSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+      <div className="flex justify-between items-start mb-4 gap-4">
+        <div className="flex-1 space-y-2">
+          <FileSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+          <TagFilter 
+            files={files}
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
+            filterMode={tagFilterMode}
+            onFilterModeChange={setTagFilterMode}
+          />
+        </div>
         <BulkActionsBar
           files={indexedFiles}
           selected={selected}
@@ -139,6 +190,7 @@ const EncryptedFileGrid = ({
         onDeleteFile={onDeleteFile}
         onDecrypt={() => { }}
         onEncrypt={handleEncrypt}
+        onEditTags={handleEditTags}
         onDragStart={handleDragStart}
         onDropOnFolder={handleDropOnFolder}
         onDragEnd={handleDragEnd}
@@ -153,6 +205,13 @@ const EncryptedFileGrid = ({
         onPrev={() => navigatePrev(0)}
         onNext={() => navigateNext(allMediaFiles.length - 1)}
         onUpdateFile={onUpdateFile}
+      />
+
+      <TagEditModal
+        open={tagEditModal.open}
+        onOpenChange={(open) => setTagEditModal(prev => ({ ...prev, open }))}
+        file={tagEditModal.file}
+        onSave={handleSaveTags}
       />
     </div>
   );

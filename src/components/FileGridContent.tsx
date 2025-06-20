@@ -16,6 +16,7 @@ type FileGridContentProps = {
   onDeleteFile: (idx: number) => void;
   onDecrypt: (idx: number) => void;
   onEncrypt: (idx: number) => void;
+  onEditTags?: (idx: number) => void;
   onDragStart: (e: React.DragEvent, idx: number) => void;
   onDropOnFolder: (folderName: string) => void;
   onDragEnd: () => void;
@@ -36,12 +37,13 @@ const FileGridContent = ({
   onDeleteFile,
   onDecrypt,
   onEncrypt,
+  onEditTags,
   onDragStart,
   onDropOnFolder,
   onDragEnd,
   setMediaViewer,
   onUpdateFile,
-}: FileGridContentProps) => {
+}: FileGridContentProps & { onEditTags?: (idx: number) => void }) => {
   const { decryptData } = useCrypto(ENCRYPT_PASS);
 
   // Helper to validate encrypted string
@@ -157,6 +159,7 @@ const FileGridContent = ({
             onDelete={() => onDeleteFile(folder.__idx)}
             onDecrypt={() => null}
             onEncrypt={() => null}
+            onEditTags={() => onEditTags?.(folder.__idx)}
             onDragStart={e => handleDragStartForVault(e, folder.__idx)}
             draggable={false}
             checkboxClassName="skip-folder-open"
@@ -189,6 +192,7 @@ const FileGridContent = ({
             onDelete={() => onDeleteFile(file.__idx)}
             onDecrypt={() => handleDecrypt(file)}
             onEncrypt={() => onEncrypt(file.__idx)}
+            onEditTags={() => onEditTags?.(file.__idx)}
             onDragStart={e => handleDragStartForVault(e, file.__idx)}
             draggable={file.type !== "folder"}
             checkboxClassName=""
