@@ -362,7 +362,7 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile, fullFi
           )}
         </div>
         
-        {/* ... keep existing code (bottom buttons) */}
+        {/* Bottom buttons */}
         <div className="absolute bottom-9 left-1/2 -translate-x-1/2 flex items-center gap-6 w-auto justify-center z-20">
           <button className={cn(
             "px-3 py-1 rounded bg-pink-600/90 text-white font-bold shadow hover:scale-105 transition",

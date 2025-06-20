@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,7 +97,7 @@ const MetadataPanel = ({ open, onOpenChange, file, fileIdx, onUpdateFile }: Meta
       toast({
         title: "Metadata saved",
         description: "Tags and notes have been encrypted and saved.",
-        variant: "success",
+        variant: "default",
       });
     } catch (err) {
       console.error("Failed to save metadata:", err);
