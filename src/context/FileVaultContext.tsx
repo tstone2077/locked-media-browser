@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { getFilesPerSourceFromIDB, setFilesPerSourceInIDB } from "@/lib/indexeddb";
 
@@ -11,6 +10,8 @@ export type FileEntry = {
   liked?: boolean;
   parent?: string; // The name of parent folder, or undefined/root
   tags?: string[]; // Array of tags for the file
+  notes?: string; // Notes about the file
+  encryptedMetadata?: string; // Encrypted tags and notes
 };
 
 type FileVaultContextType = {

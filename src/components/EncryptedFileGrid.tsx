@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import FileNavigation from "./FileNavigation";
@@ -120,7 +119,7 @@ const EncryptedFileGrid = ({
     return indexedFiles.filter(f => f.type !== "folder");
   }, [indexedFiles]);
 
-  // Find current file for media viewer
+  // Get current file for media viewer - now includes full file data
   const currentFile = useMemo(() => {
     if (mediaViewer.fileIdx >= 0 && mediaViewer.fileIdx < allMediaFiles.length) {
       const file = allMediaFiles[mediaViewer.fileIdx];
@@ -136,6 +135,14 @@ const EncryptedFileGrid = ({
       }
     }
     return { name: "", type: "text" as const, decrypted: "", liked: false };
+  }, [mediaViewer.fileIdx, allMediaFiles]);
+
+  // Get full file data for metadata panel
+  const currentFullFile = useMemo(() => {
+    if (mediaViewer.fileIdx >= 0 && mediaViewer.fileIdx < allMediaFiles.length) {
+      return allMediaFiles[mediaViewer.fileIdx];
+    }
+    return null;
   }, [mediaViewer.fileIdx, allMediaFiles]);
 
   const handleEditTags = (fileIdx: number) => {
@@ -202,6 +209,7 @@ const EncryptedFileGrid = ({
         open={mediaViewer.open}
         setOpen={open => setMediaViewer({ ...mediaViewer, open })}
         file={currentFile}
+        fullFile={currentFullFile}
         onPrev={() => navigatePrev(0)}
         onNext={() => navigateNext(allMediaFiles.length - 1)}
         onUpdateFile={onUpdateFile}

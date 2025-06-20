@@ -1,9 +1,11 @@
 import React, { useRef, useState, useEffect } from "react";
-import { X, ArrowLeft, ArrowRight, Lock, Unlock } from "lucide-react";
+import { X, ArrowLeft, ArrowRight, Lock, Unlock, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCrypto } from "@/hooks/useCrypto";
 import { toast } from "@/hooks/use-toast";
 import { generateVideoThumbnail } from "@/utils/videoThumbnail";
+import MetadataPanel from "./MetadataPanel";
+import { FileEntry } from "@/context/FileVaultContext";
 
 type Props = {
   open: boolean;
@@ -19,6 +21,8 @@ type Props = {
   onPrev: () => void;
   onNext: () => void;
   onUpdateFile?: (idx: number, updatedFile: any) => void;
+  // Add these props to get full file data for metadata
+  fullFile?: FileEntry;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -28,7 +32,7 @@ const MIN_ZOOM = 1;
 const ZOOM_STEP = 0.2;
 const ENCRYPT_PASS = "vault-password";
 
-const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile }: Props) => {
+const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile, fullFile }: Props) => {
   // Zoom/pan state, only used for images
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -36,6 +40,7 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile }: Prop
   const [isDecrypting, setIsDecrypting] = useState(false);
   const dragStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const offsetStart = useRef({ x: 0, y: 0 });
+  const [metadataPanelOpen, setMetadataPanelOpen] = useState(false);
 
   const { decryptData } = useCrypto(ENCRYPT_PASS);
 
@@ -243,6 +248,16 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile }: Prop
         >
           <X size={28} />
         </button>
+        
+        {/* Metadata panel toggle button */}
+        <button
+          className="absolute right-8 top-20 p-3 z-20 rounded-full hover:bg-cyan-900/40 text-cyan-100 bg-black/40"
+          onClick={() => setMetadataPanelOpen(true)}
+          aria-label="Edit Metadata"
+        >
+          <Settings size={24} />
+        </button>
+
         <div className="absolute left-1/2 top-8 -translate-x-1/2 flex items-center mb-4 gap-3 z-10">
           <button onClick={onPrev} className="p-2 hover:bg-cyan-900/40 rounded-xl">
             <ArrowLeft size={30} />
@@ -252,6 +267,7 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile }: Prop
             <ArrowRight size={30} />
           </button>
         </div>
+        
         {/* Main media area */}
         <div
           className="flex flex-1 items-center justify-center w-full h-full"
@@ -345,6 +361,8 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile }: Prop
             </div>
           )}
         </div>
+        
+        {/* ... keep existing code (bottom buttons) */}
         <div className="absolute bottom-9 left-1/2 -translate-x-1/2 flex items-center gap-6 w-auto justify-center z-20">
           <button className={cn(
             "px-3 py-1 rounded bg-pink-600/90 text-white font-bold shadow hover:scale-105 transition",
@@ -370,6 +388,15 @@ const MediaViewer = ({ open, setOpen, file, onPrev, onNext, onUpdateFile }: Prop
           </button>
         </div>
       </div>
+
+      {/* Metadata Panel */}
+      <MetadataPanel
+        open={metadataPanelOpen}
+        onOpenChange={setMetadataPanelOpen}
+        file={fullFile || null}
+        fileIdx={file.__idx || -1}
+        onUpdateFile={onUpdateFile || (() => {})}
+      />
     </div>
   );
 };
