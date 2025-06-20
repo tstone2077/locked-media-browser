@@ -1,10 +1,12 @@
+
 import { useSources } from "@/lib/sources";
 import EncryptedFileGrid from "./EncryptedFileGrid";
 import { useState, useRef } from "react";
-import { Image, FolderPlus, FilePlus } from "lucide-react";
+import { Image, FolderPlus, FilePlus, FileText } from "lucide-react";
 import AddFileModal from "./AddFileModal";
 import AddFolderModal from "./AddFolderModal";
 import EncryptionProgressBar from "./EncryptionProgressBar";
+import TextEditor from "./TextEditor";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useCrypto } from "@/hooks/useCrypto";
@@ -41,6 +43,9 @@ const SourceTabs = () => {
   // New state for folder modal
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
+
+  // NEW: Text editor state
+  const [textEditorOpen, setTextEditorOpen] = useState(false);
 
   // New: track navigation path (folder chain) for each tab
   const [currentPathPerSource, setCurrentPathPerSource] = useState<Record<number, string[]>>({});
@@ -333,6 +338,13 @@ const SourceTabs = () => {
         <Button
           variant="secondary"
           className="flex items-center gap-2"
+          onClick={() => setTextEditorOpen(true)}
+        >
+          <FileText className="w-4 h-4" /> Write Text
+        </Button>
+        <Button
+          variant="secondary"
+          className="flex items-center gap-2"
           onClick={() => {
             setAddFileOpen(true);
             setAddFilePrefill(undefined);
@@ -367,6 +379,14 @@ const SourceTabs = () => {
           setFolderName("");
         }}
         canSubmit={!!folderName.trim()}
+      />
+
+      {/* Text Editor Modal */}
+      <TextEditor
+        open={textEditorOpen}
+        onOpenChange={setTextEditorOpen}
+        sourceIndex={active}
+        currentFolder={currentFolder}
       />
 
       {/* Progress bar overlay */}

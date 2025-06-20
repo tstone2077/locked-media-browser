@@ -7,6 +7,7 @@ import BulkActionsBar from "./BulkActionsBar";
 import FileGridContent from "./FileGridContent";
 import MediaViewer from "./MediaViewer";
 import TagEditModal from "./TagEditModal";
+import TextEditor from "./TextEditor";
 import { useMediaViewer } from "@/hooks/useMediaViewer";
 import { useFileOperations } from "@/hooks/useFileOperations";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
@@ -32,6 +33,11 @@ const EncryptedFileGrid = ({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<"and" | "or">("or");
   const [tagEditModal, setTagEditModal] = useState<{ open: boolean; file: FileEntry | null; fileIdx: number }>({
+    open: false,
+    file: null,
+    fileIdx: -1
+  });
+  const [textEditor, setTextEditor] = useState<{ open: boolean; file: FileEntry | null; fileIdx: number }>({
     open: false,
     file: null,
     fileIdx: -1
@@ -152,6 +158,10 @@ const EncryptedFileGrid = ({
     }
   };
 
+  const handleEditText = (file: FileEntry, fileIdx: number) => {
+    setTextEditor({ open: true, file, fileIdx });
+  };
+
   const handleSaveTags = (tags: string[]) => {
     if (tagEditModal.fileIdx >= 0) {
       const updatedFile = { ...files[tagEditModal.fileIdx], tags };
@@ -159,6 +169,8 @@ const EncryptedFileGrid = ({
     }
     setTagEditModal({ open: false, file: null, fileIdx: -1 });
   };
+
+  const currentFolder = currentPath.length ? currentPath[currentPath.length - 1] : undefined;
 
   return (
     <div className="w-full">
@@ -198,6 +210,7 @@ const EncryptedFileGrid = ({
         onDecrypt={() => { }}
         onEncrypt={handleEncrypt}
         onEditTags={handleEditTags}
+        onEditText={handleEditText}
         onDragStart={handleDragStart}
         onDropOnFolder={handleDropOnFolder}
         onDragEnd={handleDragEnd}
@@ -220,6 +233,15 @@ const EncryptedFileGrid = ({
         onOpenChange={(open) => setTagEditModal(prev => ({ ...prev, open }))}
         file={tagEditModal.file}
         onSave={handleSaveTags}
+      />
+
+      <TextEditor
+        open={textEditor.open}
+        onOpenChange={(open) => setTextEditor(prev => ({ ...prev, open }))}
+        sourceIndex={sourceIndex}
+        currentFolder={currentFolder}
+        existingFile={textEditor.file}
+        fileIdx={textEditor.fileIdx}
       />
     </div>
   );

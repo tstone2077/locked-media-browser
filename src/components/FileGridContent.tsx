@@ -1,3 +1,4 @@
+
 import React from "react";
 import { FileEntry } from "@/context/FileVaultContext";
 import { FileGridItem } from "./FileGridItem";
@@ -17,6 +18,7 @@ type FileGridContentProps = {
   onDecrypt: (idx: number) => void;
   onEncrypt: (idx: number) => void;
   onEditTags?: (idx: number) => void;
+  onEditText?: (file: any, idx: number) => void;
   onDragStart: (e: React.DragEvent, idx: number) => void;
   onDropOnFolder: (folderName: string) => void;
   onDragEnd: () => void;
@@ -38,12 +40,13 @@ const FileGridContent = ({
   onDecrypt,
   onEncrypt,
   onEditTags,
+  onEditText,
   onDragStart,
   onDropOnFolder,
   onDragEnd,
   setMediaViewer,
   onUpdateFile,
-}: FileGridContentProps & { onEditTags?: (idx: number) => void }) => {
+}: FileGridContentProps) => {
   const { decryptData } = useCrypto(ENCRYPT_PASS);
 
   // Helper to validate encrypted string
@@ -171,7 +174,12 @@ const FileGridContent = ({
           key={file.name + file.__idx}
           className="hover:bg-cyan-900/10 rounded-lg transition cursor-pointer"
           onClick={async () => {
-            if (file.type === "image" || file.type === "text" || file.type === "video") {
+            if (file.type === "text") {
+              // Open text files in the editor
+              if (onEditText) {
+                onEditText(file, file.__idx);
+              }
+            } else if (file.type === "image" || file.type === "video") {
               if (file.decrypted) {
                 setMediaViewer({ fileIdx: file.__idx, open: true });
               } else {
